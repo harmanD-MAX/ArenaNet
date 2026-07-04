@@ -135,6 +135,30 @@ public class NetworkClient : MonoBehaviour
         SendPacket(20, "{}"); // 20 = JOIN_QUEUE_REQUEST
     }
 
+    public void JoinLobby(string lobbyId)
+    {
+        string payload = $"{{\"lobby_id\":\"{lobbyId}\"}}";
+        SendPacket(12, payload); // 12 = JOIN_LOBBY_REQUEST
+    }
+
+    public void LeaveLobby(string lobbyId)
+    {
+        string payload = $"{{\"lobby_id\":\"{lobbyId}\"}}";
+        SendPacket(14, payload); // 14 = LEAVE_LOBBY_REQUEST
+    }
+
+    public void ListLobbies()
+    {
+        SendPacket(16, "{}"); // 16 = LIST_LOBBIES_REQUEST
+    }
+
+    public void SetReady(string lobbyId, bool isReady)
+    {
+        string readyStr = isReady ? "true" : "false";
+        string payload = $"{{\"lobby_id\":\"{lobbyId}\",\"is_ready\":{readyStr}}}";
+        SendPacket(18, payload); // 18 = PLAYER_READY_REQUEST
+    }
+
     public void SendChatMessage(string lobbyId, string message)
     {
         string payload = $"{{\"lobby_id\":\"{lobbyId}\",\"message\":\"{message}\"}}";

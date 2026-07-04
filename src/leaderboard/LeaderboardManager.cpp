@@ -16,26 +16,24 @@ void LeaderboardManager::handleGetLeaderboard(std::shared_ptr<network::Connectio
     response.type = network::PacketType::GET_LEADERBOARD_RESPONSE;
     
     try {
-        // Ideally we would fetch top N players from the DB.
-        // Since we didn't add a getTopPlayers to PostgresClient yet, we'll return a mock for MVP,
-        // or just the requester's stats if they exist.
-        // To keep it simple, we'll fetch the user's profile and pretend it's the leaderboard.
-        // In a real implementation: `SELECT id, username, rating FROM users ORDER BY rating DESC LIMIT 10`
-        
         common::PlayerId playerId = conn->getPlayerId();
         if (playerId != 0) {
-            auto profile = database::PostgresClient::getInstance().getPlayerProfile(playerId);
+            auto topPlayers = database::PostgresClient::getInstance().getTopPlayers(10);
+            int playerRank = database::PostgresClient::getInstance().getPlayerRank(playerId);
+            
             nlohmann::json entries = nlohmann::json::array();
+            for (const auto& profile : topPlayers) {
+                nlohmann::json entry;
+                entry["player_id"] = profile.id;
+                entry["username"] = profile.username;
+                entry["rating"] = profile.rating;
+                entry["wins"] = profile.wins;
+                entry["losses"] = profile.losses;
+                entries.push_back(entry);
+            }
             
-            nlohmann::json entry;
-            entry["player_id"] = profile.id;
-            entry["username"] = profile.username;
-            entry["rating"] = profile.rating;
-            entry["wins"] = profile.wins;
-            entry["losses"] = profile.losses;
-            
-            entries.push_back(entry);
             response.payload["leaderboard"] = entries;
+            response.payload["your_rank"] = playerRank;
             response.payload["success"] = true;
         } else {
             response.payload["success"] = false;
