@@ -30,6 +30,10 @@ public:
     // Profile
     common::PlayerProfile getPlayerProfile(common::PlayerId playerId);
     void updatePlayerStats(common::PlayerId playerId, bool isWin);
+    
+    // Leaderboard
+    std::vector<common::PlayerProfile> getTopPlayers(int limit = 10);
+    int getPlayerRank(common::PlayerId playerId);
 
 private:
     PostgresClient() = default;

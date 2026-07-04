@@ -1,6 +1,6 @@
-# ArenaNet
+# ArenaNet (Version 1 MVP)
 
-ArenaNet is a highly modular, high-performance C++20 multiplayer backend framework. It is designed to act as an infrastructure product (similar to services built by Demonware or Nakama) allowing indie game developers to seamlessly integrate essential multiplayer features into their custom engines or commercial ones like Unity and Unreal Engine.
+ArenaNet is a highly modular, high-performance C++20 multiplayer backend framework. It is designed to act as an infrastructure product allowing indie game developers to seamlessly integrate essential multiplayer features into their custom engines or commercial ones like Unity and Unreal Engine.
 
 ## Overview
 
@@ -8,11 +8,12 @@ Building scalable backend services for multiplayer games is a complex and repeti
 
 ### Features
 * **Authentication**: JWT-based login and registration flow with securely hashed passwords.
-* **Lobby Management**: Create, join, and manage lobbies with ready-state synchronization.
-* **Matchmaking**: Scalable queuing system that groups players and provisions match instances.
+* **Lobby Management**: Create, join, leave, and list manual lobbies. Players can toggle their Ready state.
+* **Matchmaking**: Scalable queuing system that groups players and provisions match instances, automatically bypassing the queue for private manual lobbies when everyone readies up.
 * **Real-Time Chat**: Broadcast-based lobby chat.
-* **Leaderboards**: Track player Wins, Losses, and Elo Ratings.
-* **Player Profiles**: Persistent user statistics.
+* **Leaderboards**: Track player Wins, Losses, and calculate global Player Rank dynamically using PostgreSQL window functions.
+* **Unity Integration**: Includes a complete C# `NetworkClient.cs` and `ArenaNetUIManager.cs` for drag-and-drop Unity integration.
+* **Desktop Client**: Includes a fully-functional Python Tkinter GUI desktop client for instant manual testing (`client/gui_client.py`).
 
 ## Architecture
 
@@ -47,6 +48,8 @@ ArenaNet/
 * **Cache:** Redis (redis-plus-plus)
 * **Authentication:** JWT (jwt-cpp)
 * **Build System:** CMake
+* **Desktop Client:** Python (Tkinter, socket)
+* **Unity Client:** C# (TcpClient, UnityEngine.UI)
 
 ## Local Development Setup
 
@@ -103,15 +106,31 @@ ArenaNet communicates over TCP (and optionally UDP for game state). We use a lig
 ### Packet Types
 * `1`: LOGIN_REQUEST
 * `2`: LOGIN_RESPONSE
+* `3`: REGISTER_REQUEST
+* `4`: REGISTER_RESPONSE
 * `10`: CREATE_LOBBY_REQUEST
+* `12`: JOIN_LOBBY_REQUEST
+* `14`: LEAVE_LOBBY_REQUEST
 * `15`: LOBBY_STATE_UPDATE
+* `16`: LIST_LOBBIES_REQUEST
+* `18`: PLAYER_READY_REQUEST
 * `20`: JOIN_QUEUE_REQUEST
 * `23`: MATCH_FOUND_EVENT
 * `30`: CHAT_MESSAGE
+* `40`: GET_LEADERBOARD_REQUEST
 * *(Refer to `Packet.h` for the complete list of opcodes).*
 
-## Screenshots
-*(UI Demo client screenshots placeholder - to be added once demo client is complete)*
+## Testing via GUI Client
+
+ArenaNet comes with a fully-functional Python desktop client for testing the server without needing to build a Unity project.
+
+To launch the GUI client, simply run:
+```bash
+python3 client/gui_client.py
+```
+
+You can open multiple terminal windows and run this command multiple times to simulate multiple concurrent players interacting with the backend!
+
 
 ## License
 MIT License. See `LICENSE` for details.

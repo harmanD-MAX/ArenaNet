@@ -1,4 +1,10 @@
 build/
 .DS_Store
+.cache/
+*.o
+*.a
+*.dylib
+*.so
 compile_commands.json
 __pycache__/
+*.pyc

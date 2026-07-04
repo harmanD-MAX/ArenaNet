@@ -29,6 +29,8 @@ private:
     void handleCreateLobby(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     void handleJoinLobby(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     void handleLeaveLobby(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
+    void handleListLobbies(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
+    void handlePlayerReady(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
 
     std::string generateLobbyId();
 

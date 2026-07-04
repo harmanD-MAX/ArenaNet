@@ -137,5 +137,49 @@ void PostgresClient::updatePlayerStats(common::PlayerId playerId, bool isWin) {
     }
 }
 
+std::vector<common::PlayerProfile> PostgresClient::getTopPlayers(int limit) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    std::vector<common::PlayerProfile> topPlayers;
+    try {
+        pqxx::nontransaction N(*conn_);
+        pqxx::result R = N.exec_params(
+            "SELECT id, username, rating, wins, losses FROM users ORDER BY rating DESC, wins DESC LIMIT $1",
+            limit
+        );
+        for (auto row : R) {
+            common::PlayerProfile profile;
+            profile.id = row["id"].as<common::PlayerId>();
+            profile.username = row["username"].as<std::string>();
+            profile.rating = row["rating"].as<int>();
+            profile.wins = row["wins"].as<int>();
+            profile.losses = row["losses"].as<int>();
+            topPlayers.push_back(profile);
+        }
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to get top players: " + std::string(e.what()));
+    }
+    return topPlayers;
+}
+
+int PostgresClient::getPlayerRank(common::PlayerId playerId) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::nontransaction N(*conn_);
+        // Use a subquery to calculate rank
+        pqxx::result R = N.exec_params(
+            "SELECT rank FROM ("
+            "  SELECT id, RANK() OVER (ORDER BY rating DESC, wins DESC) as rank FROM users"
+            ") ranked_users WHERE id = $1",
+            playerId
+        );
+        if (!R.empty()) {
+            return R[0]["rank"].as<int>();
+        }
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to get player rank: " + std::string(e.what()));
+    }
+    return -1; // Return -1 on error or not found
+}
+
 } // namespace database
 } // namespace arenanet

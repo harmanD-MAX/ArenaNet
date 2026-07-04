@@ -27,6 +27,12 @@ void LobbyManager::handlePacket(std::shared_ptr<network::Connection> conn, const
         case network::PacketType::LEAVE_LOBBY_REQUEST:
             handleLeaveLobby(conn, packet);
             break;
+        case network::PacketType::LIST_LOBBIES_REQUEST:
+            handleListLobbies(conn, packet);
+            break;
+        case network::PacketType::PLAYER_READY_REQUEST:
+            handlePlayerReady(conn, packet);
+            break;
         default:
             break;
     }
@@ -137,6 +143,65 @@ std::string LobbyManager::generateLobbyId() {
         id += charset[dist(rng)];
     }
     return id;
+}
+
+void LobbyManager::handleListLobbies(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
+    network::Packet response;
+    response.type = network::PacketType::LIST_LOBBIES_RESPONSE;
+    nlohmann::json lobbiesArr = nlohmann::json::array();
+    
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto& [id, lobby] : lobbies_) {
+            nlohmann::json l;
+            l["lobby_id"] = id;
+            l["owner_id"] = lobby->getOwnerId();
+            l["player_count"] = lobby->getPlayers().size();
+            lobbiesArr.push_back(l);
+        }
+    }
+    
+    response.payload["lobbies"] = lobbiesArr;
+    conn->send(response);
+}
+
+void LobbyManager::handlePlayerReady(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
+    if (!packet.payload.contains("lobby_id") || !packet.payload.contains("is_ready")) {
+        return;
+    }
+    std::string lobbyId = packet.payload["lobby_id"];
+    bool isReady = packet.payload["is_ready"];
+    common::PlayerId playerId = conn->getPlayerId();
+    
+    std::shared_ptr<Lobby> lobby;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = lobbies_.find(lobbyId);
+        if (it != lobbies_.end()) {
+            lobby = it->second;
+        }
+    }
+    
+    if (lobby) {
+        lobby->setPlayerReady(playerId, isReady);
+        broadcastToLobby(lobbyId, lobby->getLobbyStatePacket());
+        
+        // If everyone is ready, start match!
+        if (lobby->isEveryoneReady() && lobby->getPlayers().size() >= 2) {
+            network::Packet matchStart;
+            matchStart.type = network::PacketType::MATCH_FOUND_EVENT;
+            matchStart.payload["match_id"] = lobbyId; // For MVP, the manual lobby becomes the match
+            
+            nlohmann::json playersArr = nlohmann::json::array();
+            for (auto pid : lobby->getPlayers()) {
+                playersArr.push_back(pid);
+            }
+            matchStart.payload["players"] = playersArr;
+            
+            broadcastToLobby(lobbyId, matchStart);
+            common::Logger::info("Lobby " + lobbyId + " is fully ready. Match starting!");
+        }
+    }
 }
 
 } // namespace lobby
