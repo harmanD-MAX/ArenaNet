@@ -33,6 +33,12 @@ public:
     int getTcpPort() const { return tcpPort_; }
     int getUdpPort() const { return udpPort_; }
 
+    // Game Settings
+    int getMatchSize() const { return matchSize_; }
+    int getMatchmakingExpansionRate() const { return matchmakingExpansionRate_; }
+    int getQueueTimeoutSeconds() const { return queueTimeoutSeconds_; }
+    int getReconnectTimeoutSeconds() const { return reconnectTimeoutSeconds_; }
+
 private:
     ConfigManager() = default;
 
@@ -52,6 +58,11 @@ private:
 
     int tcpPort_;
     int udpPort_;
+
+    int matchSize_;
+    int matchmakingExpansionRate_;
+    int queueTimeoutSeconds_;
+    int reconnectTimeoutSeconds_;
 };
 
 } // namespace config

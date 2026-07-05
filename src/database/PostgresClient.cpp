@@ -80,9 +80,7 @@ void PostgresClient::initializeSchema() {
     }
 }
 
-// ---------------------------------------------------------
 // AUTHENTICATION & PROFILES
-// ---------------------------------------------------------
 
 common::PlayerId PostgresClient::createUser(const std::string& username, const std::string& passwordHash) {
     std::lock_guard<std::mutex> lock(dbMutex_);
@@ -210,9 +208,7 @@ int PostgresClient::getPlayerRank(common::PlayerId playerId) {
     return -1; // Return -1 on error or not found
 }
 
-// ---------------------------------------------------------
 // FRIEND SYSTEM
-// ---------------------------------------------------------
 
 void PostgresClient::sendFriendRequest(common::PlayerId sender, common::PlayerId receiver) {
     std::lock_guard<std::mutex> lock(dbMutex_);
@@ -303,9 +299,7 @@ std::vector<common::FriendInfo> PostgresClient::getFriendsList(common::PlayerId 
     return friends;
 }
 
-// ---------------------------------------------------------
 // MATCH HISTORY SYSTEM
-// ---------------------------------------------------------
 
 void PostgresClient::recordMatchResult(const std::string& matchId, common::PlayerId winnerId, int durationSeconds, const std::vector<common::PlayerId>& players) {
     std::lock_guard<std::mutex> lock(dbMutex_);

@@ -5,6 +5,7 @@
 #include "../database/PostgresClient.h"
 #include "../party/PartyManager.h"
 #include "../network/SessionManager.h"
+#include "../config/ConfigManager.h"
 
 namespace arenanet {
 namespace matchmaking {
@@ -44,9 +45,7 @@ void Matchmaker::handlePacket(std::shared_ptr<network::Connection> conn, const n
     }
 }
 
-// ---------------------------------------------------------
 // QUEUE MANAGEMENT
-// ---------------------------------------------------------
 
 void Matchmaker::handleJoinQueue(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     common::PlayerId playerId = conn->getPlayerId();
@@ -100,14 +99,13 @@ void Matchmaker::removePlayerFromQueue(common::PlayerId playerId) {
     common::Logger::info("Player " + std::to_string(playerId) + " (and their party if any) left the matchmaking queue.");
 }
 
-// ---------------------------------------------------------
 // MATCHING LOOP
-// ---------------------------------------------------------
 
 void Matchmaker::matchLoop() {
     while (isRunning_) {
         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        auto matched = queue_.getMatch(2, now);
+        int matchSize = config::ConfigManager::getInstance().getMatchSize();
+        auto matched = queue_.getMatch(matchSize, now);
         
         if (!matched.empty()) {
             notifyMatch(matched);

@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 #include <csignal>
+#include <cstdlib>
 
 #include "common/Logger.h"
 #include "config/ConfigManager.h"
@@ -18,7 +19,6 @@
 #include "friend/FriendManager.h"
 #include "party/PartyManager.h"
 #include "match/MatchManager.h"
-#include "matchmaking/Matchmaker.h"
 #include "network/SessionManager.h"
 
 using namespace arenanet;
@@ -96,6 +96,12 @@ int main() {
 
                 // Set presence offline
                 redis::RedisClient::getInstance().setPlayerPresence(conn->getPlayerId(), "OFFLINE");
+                
+                // Notify lobby of disconnect for session recovery logic
+                lobby::LobbyManager::getInstance().handlePlayerDisconnect(conn->getPlayerId());
+                
+                // Cleanup party state
+                party::PartyManager::getInstance().handlePlayerDisconnect(conn->getPlayerId());
             }
         });
 

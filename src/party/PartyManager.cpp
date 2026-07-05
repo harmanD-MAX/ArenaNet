@@ -176,6 +176,37 @@ void PartyManager::handleLeaveParty(std::shared_ptr<network::Connection> conn, c
     }
 }
 
+void PartyManager::handlePlayerDisconnect(common::PlayerId playerId) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!playerToParty_.count(playerId)) return;
+    
+    std::string partyId = playerToParty_[playerId];
+    auto party = parties_[partyId];
+    
+    auto it = std::find(party->members.begin(), party->members.end(), playerId);
+    if (it != party->members.end()) {
+        party->members.erase(it);
+    }
+    playerToParty_.erase(playerId);
+
+    if (party->members.empty()) {
+        parties_.erase(partyId);
+        common::Logger::info("Party " + partyId + " destroyed after disconnect.");
+    } else {
+        if (party->leaderId == playerId) {
+            party->leaderId = party->members[0];
+        }
+        
+        network::Packet bcast;
+        bcast.type = network::PacketType::PARTY_STATE_UPDATE;
+        bcast.payload = party->toJson();
+        for (auto mId : party->members) {
+            auto mConn = network::SessionManager::getInstance().getConnection(mId);
+            if (mConn) mConn->send(bcast);
+        }
+    }
+}
+
 std::string PartyManager::generatePartyId() {
     static const char alphanum[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     std::string id;

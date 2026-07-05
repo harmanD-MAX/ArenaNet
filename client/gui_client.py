@@ -9,7 +9,7 @@ import time
 class ArenaNetGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("ArenaNet Client Demo V2")
+        self.root.title("ArenaNet V3")
         self.root.geometry("600x750")
         
         self.sock = None
@@ -36,22 +36,28 @@ class ArenaNetGUI:
         self.pass_entry.insert(0, "password123")
         
         tk.Button(top_frame, text="Register", command=self.do_register).grid(row=1, column=1, pady=5)
-        tk.Button(top_frame, text="Login", command=self.do_login).grid(row=1, column=3, pady=5)
+        tk.Button(top_frame, text="Login", command=self.do_login).grid(row=1, column=2, pady=5)
+        tk.Button(top_frame, text="Reconnect (Token)", command=self.do_reconnect).grid(row=1, column=3, pady=5)
         
         # Middle Frame - Lobby
         mid_frame = tk.Frame(self.root)
         mid_frame.pack(pady=10, fill=tk.X, padx=10)
         
         tk.Button(mid_frame, text="Create Lobby", command=self.do_create_lobby).grid(row=0, column=0, padx=5)
-        tk.Button(mid_frame, text="List Lobbies", command=self.do_list_lobbies).grid(row=0, column=1, padx=5)
+        
+        self.is_private_var = tk.BooleanVar()
+        tk.Checkbutton(mid_frame, text="Private", variable=self.is_private_var).grid(row=0, column=1, padx=5)
+        
+        tk.Button(mid_frame, text="List Lobbies", command=self.do_list_lobbies).grid(row=0, column=2, padx=5)
         
         self.lobby_id_entry = tk.Entry(mid_frame, width=10)
-        self.lobby_id_entry.grid(row=0, column=2, padx=5)
-        tk.Button(mid_frame, text="Join Lobby", command=self.do_join_lobby).grid(row=0, column=3, padx=5)
-        tk.Button(mid_frame, text="Leave Lobby", command=self.do_leave_lobby).grid(row=0, column=4, padx=5)
+        self.lobby_id_entry.grid(row=0, column=3, padx=5)
+        tk.Button(mid_frame, text="Join Lobby", command=self.do_join_lobby).grid(row=0, column=4, padx=5)
+        tk.Button(mid_frame, text="Leave Lobby", command=self.do_leave_lobby).grid(row=0, column=5, padx=5)
         
         tk.Button(mid_frame, text="Ready", command=lambda: self.do_ready(True)).grid(row=1, column=0, pady=5)
         tk.Button(mid_frame, text="Unready", command=lambda: self.do_ready(False)).grid(row=1, column=1, pady=5)
+        tk.Button(mid_frame, text="Kick (ID)", command=self.do_kick).grid(row=1, column=2, pady=5)
         tk.Button(mid_frame, text="Leaderboard", command=self.do_leaderboard).grid(row=1, column=3, pady=5)
 
         # V2 Frame - Friends, Party, Match History
@@ -68,6 +74,7 @@ class ArenaNetGUI:
         tk.Button(v2_frame, text="Create Party", command=self.do_create_party).grid(row=1, column=0, pady=5)
         tk.Button(v2_frame, text="Invite Party (ID)", command=self.do_invite_party).grid(row=1, column=1, pady=5)
         tk.Button(v2_frame, text="Accept Party (ID)", command=self.do_accept_party).grid(row=1, column=2, pady=5)
+        tk.Button(v2_frame, text="Leave Party", command=self.do_leave_party).grid(row=1, column=3, pady=5)
         
         tk.Button(v2_frame, text="Queue Match", command=self.do_queue_match).grid(row=2, column=0, pady=5)
         tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=2, column=1, pady=5)
@@ -194,8 +201,14 @@ class ArenaNetGUI:
     def do_login(self):
         self.send_packet(1, {"username": self.user_entry.get(), "password": self.pass_entry.get()})
         
+    def do_reconnect(self):
+        if self.token:
+            self.send_packet(1, {"token": self.token})
+        else:
+            self.log("No token available. Please login first.")
+        
     def do_create_lobby(self):
-        self.send_packet(10, {})
+        self.send_packet(10, {"is_private": self.is_private_var.get(), "max_capacity": 4})
         
     def do_list_lobbies(self):
         self.send_packet(16, {})
@@ -214,6 +227,12 @@ class ArenaNetGUI:
     def do_ready(self, state):
         if self.current_lobby:
             self.send_packet(18, {"lobby_id": self.current_lobby, "is_ready": state})
+            
+    def do_kick(self):
+        target = self.lobby_id_entry.get()
+        if target.isdigit() and self.current_lobby:
+            self.send_packet(19, {"lobby_id": self.current_lobby, "target_id": int(target)})
+            self.log(f"Kicked player {target} from lobby")
             
     def do_chat(self):
         msg = self.chat_entry.get()
@@ -253,6 +272,10 @@ class ArenaNetGUI:
         if party_id:
             self.send_packet(62, {"party_id": party_id})
             self.log(f"Accepted party invite for {party_id}")
+            
+    def do_leave_party(self):
+        self.send_packet(63, {})
+        self.log("Requested to leave party.")
         
     def do_queue_match(self):
         self.send_packet(20, {}) # JOIN_QUEUE_REQUEST

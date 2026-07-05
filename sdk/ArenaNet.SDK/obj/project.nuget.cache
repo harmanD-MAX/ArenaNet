@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "j4BdFtp+wng=",
+  "success": true,
+  "projectFilePath": "/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/ArenaNet.SDK.csproj",
+  "expectedPackageFiles": [
+    "/Users/harman/.nuget/packages/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg.sha512",
+    "/Users/harman/.nuget/packages/netstandard.library.ref/2.1.0/netstandard.library.ref.2.1.0.nupkg.sha512"
+  ],
+  "logs": []
+}

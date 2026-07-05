@@ -37,6 +37,8 @@ public:
     
     // For Matchmaker to retrieve party members
     std::shared_ptr<Party> getPartyOfPlayer(common::PlayerId playerId);
+    
+    void handlePlayerDisconnect(common::PlayerId playerId);
 
 private:
     PartyManager() = default;

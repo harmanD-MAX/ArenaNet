@@ -24,6 +24,7 @@ enum class PacketType {
     LIST_LOBBIES_REQUEST = 16,
     LIST_LOBBIES_RESPONSE = 17,
     PLAYER_READY_REQUEST = 18,
+    KICK_PLAYER_REQUEST = 19,
 
     // Matchmaking
     JOIN_QUEUE_REQUEST = 20,
