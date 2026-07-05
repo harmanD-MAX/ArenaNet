@@ -23,11 +23,9 @@ public:
     void stop();
 
     void handlePacket(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
-    
-    // Add player connection for notifying them when match is found
-    void registerConnection(common::PlayerId playerId, std::shared_ptr<network::Connection> conn);
-    void unregisterConnection(common::PlayerId playerId);
 
+    void removePlayerFromQueue(common::PlayerId playerId);
+    
 private:
     Matchmaker() = default;
     ~Matchmaker();
@@ -41,9 +39,6 @@ private:
     Queue queue_;
     std::atomic<bool> isRunning_{false};
     std::unique_ptr<std::thread> matchThread_;
-
-    std::mutex connMutex_;
-    std::unordered_map<common::PlayerId, std::shared_ptr<network::Connection>> connections_;
 };
 
 } // namespace matchmaking

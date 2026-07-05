@@ -15,6 +15,11 @@
 #include "matchmaking/Matchmaker.h"
 #include "chat/ChatManager.h"
 #include "leaderboard/LeaderboardManager.h"
+#include "friend/FriendManager.h"
+#include "party/PartyManager.h"
+#include "match/MatchManager.h"
+#include "matchmaking/Matchmaker.h"
+#include "network/SessionManager.h"
 
 using namespace arenanet;
 
@@ -30,7 +35,6 @@ void signalHandler(int signum) {
 
 void routePacket(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     int typeId = static_cast<int>(packet.type);
-    
     if (typeId >= 1 && typeId < 10) {
         authentication::AuthManager::getInstance().handlePacket(conn, packet);
     } else if (typeId >= 10 && typeId < 20) {
@@ -41,6 +45,12 @@ void routePacket(std::shared_ptr<network::Connection> conn, const network::Packe
         chat::ChatManager::getInstance().handlePacket(conn, packet);
     } else if (typeId >= 40 && typeId < 50) {
         leaderboard::LeaderboardManager::getInstance().handlePacket(conn, packet);
+    } else if (typeId >= 50 && typeId < 60) {
+        friend_system::FriendManager::getInstance().handlePacket(conn, packet);
+    } else if (typeId >= 60 && typeId < 70) {
+        party::PartyManager::getInstance().handlePacket(conn, packet);
+    } else if (typeId >= 70 && typeId < 80) {
+        match::MatchManager::getInstance().handlePacket(conn, packet);
     } else {
         common::Logger::warning("Received unknown packet type: " + std::to_string(typeId));
     }
@@ -79,7 +89,13 @@ int main() {
             // Cleanup on disconnect
             if (conn->getPlayerId() != 0) {
                 // If they were in queue, remove them
-                matchmaking::Matchmaker::getInstance().unregisterConnection(conn->getPlayerId());
+                matchmaking::Matchmaker::getInstance().removePlayerFromQueue(conn->getPlayerId());
+                
+                // Unregister session
+                network::SessionManager::getInstance().unregisterConnection(conn->getPlayerId());
+
+                // Set presence offline
+                redis::RedisClient::getInstance().setPlayerPresence(conn->getPlayerId(), "OFFLINE");
             }
         });
 

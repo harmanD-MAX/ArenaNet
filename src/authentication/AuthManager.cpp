@@ -2,6 +2,7 @@
 #include "JwtUtils.h"
 #include "../database/PostgresClient.h"
 #include "../redis/RedisClient.h"
+#include "../network/SessionManager.h"
 #include "../config/ConfigManager.h"
 #include "../common/Logger.h"
 #include "../common/Error.h"
@@ -85,6 +86,12 @@ void AuthManager::handleLogin(std::shared_ptr<network::Connection> conn, const n
 
         // Update connection state
         conn->setPlayerId(playerId);
+
+        // Update presence
+        redis::RedisClient::getInstance().setPlayerPresence(playerId, "ONLINE");
+        
+        // Register connection
+        network::SessionManager::getInstance().registerConnection(playerId, conn);
 
         response.payload["success"] = true;
         response.payload["token"] = token;

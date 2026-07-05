@@ -2,6 +2,9 @@
 #include "../common/Logger.h"
 #include <chrono>
 #include <random>
+#include "../database/PostgresClient.h"
+#include "../party/PartyManager.h"
+#include "../network/SessionManager.h"
 
 namespace arenanet {
 namespace matchmaking {
@@ -29,8 +32,6 @@ void Matchmaker::stop() {
 void Matchmaker::handlePacket(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     if (conn->getPlayerId() == 0) return;
 
-    registerConnection(conn->getPlayerId(), conn);
-
     switch (packet.type) {
         case network::PacketType::JOIN_QUEUE_REQUEST:
             handleJoinQueue(conn, packet);
@@ -43,45 +44,66 @@ void Matchmaker::handlePacket(std::shared_ptr<network::Connection> conn, const n
     }
 }
 
-void Matchmaker::registerConnection(common::PlayerId playerId, std::shared_ptr<network::Connection> conn) {
-    std::lock_guard<std::mutex> lock(connMutex_);
-    connections_[playerId] = conn;
-}
-
-void Matchmaker::unregisterConnection(common::PlayerId playerId) {
-    std::lock_guard<std::mutex> lock(connMutex_);
-    connections_.erase(playerId);
-}
-
 void Matchmaker::handleJoinQueue(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     common::PlayerId playerId = conn->getPlayerId();
-    // Assuming client doesn't dictate their rating, but for MVP we might fetch it from DB later. 
-    // Here we just use a default rating of 1000.
-    int rating = 1000; 
     
-    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+    // Check if player is in a party
+    auto party = party::PartyManager::getInstance().getPartyOfPlayer(playerId);
+    
+    QueueEntry entry;
+    entry.joinTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
         
-    queue_.addPlayer(playerId, rating, now);
+    if (party) {
+        if (party->leaderId != playerId) {
+            common::Logger::warning("Non-leader tried to queue the party.");
+            return;
+        }
+        entry.partyId = party->id;
+        entry.members = party->members;
+    } else {
+        entry.partyId = "";
+        entry.members = {playerId};
+    }
+    
+    // Calculate average rating, but default to 1000 if not found
+    int totalRating = 0;
+    for (auto pId : entry.members) {
+        try {
+            auto profile = database::PostgresClient::getInstance().getPlayerProfile(pId);
+            totalRating += profile.rating;
+        } catch (const std::exception& e) {
+            common::Logger::warning("Could not fetch profile for player " + std::to_string(pId) + ", defaulting rating to 1000.");
+            totalRating += 1000;
+        }
+    }
+    entry.averageRating = entry.members.empty() ? 1000 : (totalRating / entry.members.size());
+    
+    queue_.addEntry(entry);
     
     network::Packet response;
     response.type = network::PacketType::JOIN_QUEUE_RESPONSE;
     response.payload["success"] = true;
     conn->send(response);
     
-    common::Logger::info("Player " + std::to_string(playerId) + " joined the matchmaking queue.");
+    common::Logger::info("Player " + std::to_string(playerId) + " joined the matchmaking queue. Rating: " + std::to_string(entry.averageRating));
 }
 
 void Matchmaker::handleLeaveQueue(std::shared_ptr<network::Connection> conn, const network::Packet& /*packet*/) {
     common::PlayerId playerId = conn->getPlayerId();
+    removePlayerFromQueue(playerId);
+}
+
+void Matchmaker::removePlayerFromQueue(common::PlayerId playerId) {
     queue_.removePlayer(playerId);
-    common::Logger::info("Player " + std::to_string(playerId) + " left the matchmaking queue.");
+    common::Logger::info("Player " + std::to_string(playerId) + " (and their party if any) left the matchmaking queue.");
 }
 
 void Matchmaker::matchLoop() {
     while (isRunning_) {
-        // We'll try to find 2 players for a match
-        auto matched = queue_.getMatch(2);
+        // We'll try to find 2 players (or 2 party sizes that sum to 2) for a match.
+        auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        auto matched = queue_.getMatch(2, now);
         
         if (!matched.empty()) {
             notifyMatch(matched);
@@ -99,20 +121,23 @@ void Matchmaker::notifyMatch(const std::vector<QueueEntry>& matchedPlayers) {
     eventPacket.payload["match_id"] = matchId;
     
     nlohmann::json playersArr = nlohmann::json::array();
-    for (const auto& p : matchedPlayers) {
-        playersArr.push_back(p.playerId);
+    for (const auto& entry : matchedPlayers) {
+        for (auto pId : entry.members) {
+            playersArr.push_back(pId);
+        }
     }
     eventPacket.payload["players"] = playersArr;
 
-    std::lock_guard<std::mutex> lock(connMutex_);
-    for (const auto& p : matchedPlayers) {
-        auto it = connections_.find(p.playerId);
-        if (it != connections_.end() && it->second) {
-            it->second->send(eventPacket);
+    for (const auto& entry : matchedPlayers) {
+        for (auto pId : entry.members) {
+            auto targetConn = network::SessionManager::getInstance().getConnection(pId);
+            if (targetConn) {
+                targetConn->send(eventPacket);
+            }
         }
     }
     
-    common::Logger::info("Match created: " + matchId + " with " + std::to_string(matchedPlayers.size()) + " players.");
+    common::Logger::info("Match created: " + matchId + " with " + std::to_string(playersArr.size()) + " players.");
 }
 
 } // namespace matchmaking

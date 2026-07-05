@@ -17,8 +17,6 @@ Building scalable backend services for multiplayer games is a complex and repeti
 
 ## Architecture
 
-ArenaNet strictly adheres to modular and clean architecture principles. There are no "God classes." Responsibilities are tightly scoped to specific directories and namespaces.
-
 ```text
 ArenaNet/
 ├── CMakeLists.txt

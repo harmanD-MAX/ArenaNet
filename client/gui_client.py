@@ -9,8 +9,8 @@ import time
 class ArenaNetGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("ArenaNet Client Demo")
-        self.root.geometry("600x500")
+        self.root.title("ArenaNet Client Demo V2")
+        self.root.geometry("600x700")
         
         self.sock = None
         self.connected = False
@@ -53,6 +53,20 @@ class ArenaNetGUI:
         tk.Button(mid_frame, text="Unready", command=lambda: self.do_ready(False)).grid(row=1, column=1, pady=5)
         tk.Button(mid_frame, text="Leaderboard", command=self.do_leaderboard).grid(row=1, column=3, pady=5)
 
+        # V2 Frame - Friends, Party, Match History
+        v2_frame = tk.Frame(self.root)
+        v2_frame.pack(pady=10, fill=tk.X, padx=10)
+        
+        tk.Button(v2_frame, text="Get Friends", command=self.do_get_friends).grid(row=0, column=0, padx=5)
+        
+        self.target_entry = tk.Entry(v2_frame, width=10)
+        self.target_entry.grid(row=0, column=1, padx=5)
+        tk.Button(v2_frame, text="Add Friend (ID)", command=self.do_add_friend).grid(row=0, column=2, padx=5)
+        
+        tk.Button(v2_frame, text="Create Party", command=self.do_create_party).grid(row=1, column=0, pady=5)
+        tk.Button(v2_frame, text="Queue Match", command=self.do_queue_match).grid(row=1, column=1, pady=5)
+        tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=1, column=2, pady=5)
+
         # Bottom Frame - Chat & Logs
         bottom_frame = tk.Frame(self.root)
         bottom_frame.pack(pady=10, fill=tk.BOTH, expand=True, padx=10)
@@ -61,7 +75,7 @@ class ArenaNetGUI:
         self.chat_entry.pack(fill=tk.X, pady=5)
         tk.Button(bottom_frame, text="Send Chat", command=self.do_chat).pack()
         
-        self.log_area = scrolledtext.ScrolledText(bottom_frame, height=15)
+        self.log_area = scrolledtext.ScrolledText(bottom_frame, height=20)
         self.log_area.pack(fill=tk.BOTH, expand=True, pady=5)
         
     def log(self, msg):
@@ -153,8 +167,20 @@ class ArenaNetGUI:
             self.log("--- Leaderboard ---")
             for entry in payload.get("leaderboard", []):
                 self.log(f"{entry['username']} - Rating: {entry['rating']}")
+        elif ptype == 55: # GET_FRIENDS_LIST_RESPONSE
+            self.log("--- Friends List ---")
+            for f in payload.get("friends", []):
+                self.log(f"ID: {f['id']} | {f['username']} | Status: {f['status']} | Presence: {f['presence']}")
+        elif ptype == 64: # PARTY_STATE_UPDATE
+            self.log(f"Party State: {json.dumps(payload)}")
+        elif ptype == 72: # GET_MATCH_HISTORY_RESPONSE
+            self.log("--- Match History ---")
+            for m in payload.get("history", []):
+                self.log(f"Match {m['match_id']} | Winner: {m['winner_id']} | Time: {m['timestamp']}")
+        elif ptype == 80: # NOTIFICATION_EVENT
+            self.log(f"Notification: {json.dumps(payload)}")
         else:
-            self.log(f"Received: {data}")
+            self.log(f"Received (Op {ptype}): {payload}")
 
     def do_register(self):
         self.send_packet(3, {"username": self.user_entry.get(), "password": self.pass_entry.get()})
@@ -185,6 +211,25 @@ class ArenaNetGUI:
 
     def do_leaderboard(self):
         self.send_packet(40, {})
+        
+    def do_get_friends(self):
+        self.send_packet(54, {})
+        
+    def do_add_friend(self):
+        target = self.target_entry.get()
+        if target.isdigit():
+            self.send_packet(50, {"target_id": int(target)})
+            self.log(f"Sent friend request to ID {target}")
+            
+    def do_create_party(self):
+        self.send_packet(60, {})
+        
+    def do_queue_match(self):
+        self.send_packet(21, {}) # JOIN_QUEUE_REQUEST
+        self.log("Joined matchmaking queue.")
+        
+    def do_match_history(self):
+        self.send_packet(71, {})
 
 if __name__ == "__main__":
     root = tk.Tk()
