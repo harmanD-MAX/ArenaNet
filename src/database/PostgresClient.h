@@ -50,7 +50,7 @@ private:
     PostgresClient() = default;
 
     std::unique_ptr<pqxx::connection> conn_;
-    std::mutex dbMutex_; // Simple mutex for MVP. A connection pool would be better for production.
+    std::mutex dbMutex_;
 };
 
 } // namespace database

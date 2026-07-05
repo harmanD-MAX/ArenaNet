@@ -17,7 +17,7 @@ public:
 
     void handlePacket(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     
-    // Hash a password (simple SHA256 for MVP, bcrypt/argon2 in production)
+    // Hash a password
     std::string hashPassword(const std::string& password);
 
 private:

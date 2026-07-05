@@ -1,14 +1,18 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Threading.Tasks;
+using ArenaNet.SDK;
 
 /// <summary>
 /// A minimal, polished UI Manager that demonstrates how a Unity game would integrate with ArenaNet.
-/// This script links standard Unity UI Buttons/InputFields to the NetworkClient.
+/// This script links standard Unity UI Buttons/InputFields to the new ArenaNet SDK.
 /// </summary>
 public class ArenaNetUIManager : MonoBehaviour
 {
     [Header("Network")]
-    public NetworkClient networkClient;
+    public string host = "127.0.0.1";
+    public int port = 8080;
+    private ArenaNetClient client;
 
     [Header("Login/Register UI")]
     public GameObject authPanel;
@@ -36,19 +40,30 @@ public class ArenaNetUIManager : MonoBehaviour
     // Internal state
     private string currentLobbyId = "";
 
-    void Start()
+    async void Start()
     {
-        // Hook up UI buttons to the Network Client
+        client = new ArenaNetClient(host, port);
+        
+        try {
+            await client.ConnectAsync();
+            Debug.Log("Connected to ArenaNet!");
+        } catch (System.Exception e) {
+            Debug.LogError("Failed to connect: " + e.Message);
+        }
+
+        // Hook up UI buttons to the SDK
         loginBtn.onClick.AddListener(OnLoginClicked);
         registerBtn.onClick.AddListener(OnRegisterClicked);
         
-        getLeaderboardBtn.onClick.AddListener(() => networkClient.GetLeaderboard());
-        listLobbiesBtn.onClick.AddListener(() => networkClient.ListLobbies());
-        createLobbyBtn.onClick.AddListener(() => networkClient.CreateLobby());
-        matchmakeBtn.onClick.AddListener(() => networkClient.JoinQueue());
+        getLeaderboardBtn.onClick.AddListener(async () => await client.Leaderboard.GetLeaderboardAsync());
+        createLobbyBtn.onClick.AddListener(async () => {
+            currentLobbyId = await client.Lobby.CreateLobbyAsync();
+            OnJoinedLobby(currentLobbyId);
+        });
+        matchmakeBtn.onClick.AddListener(async () => await client.Matchmaking.JoinQueueAsync());
         
-        readyBtn.onClick.AddListener(() => networkClient.SetReady(currentLobbyId, true));
-        unreadyBtn.onClick.AddListener(() => networkClient.SetReady(currentLobbyId, false));
+        readyBtn.onClick.AddListener(async () => await client.Lobby.SetReadyAsync(currentLobbyId, true));
+        unreadyBtn.onClick.AddListener(async () => await client.Lobby.SetReadyAsync(currentLobbyId, false));
         leaveLobbyBtn.onClick.AddListener(OnLeaveLobbyClicked);
         sendChatBtn.onClick.AddListener(OnSendChatClicked);
 
@@ -56,32 +71,39 @@ public class ArenaNetUIManager : MonoBehaviour
         ShowAuthPanel();
     }
 
-    private void OnLoginClicked()
+    private async void OnLoginClicked()
     {
         string user = usernameInput.text;
         string pass = passwordInput.text;
         if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(pass))
         {
-            networkClient.Login(user, pass);
-            // Ideally wait for LOGIN_RESPONSE before switching panels.
-            // For demo simplicity, assume success.
-            ShowMainMenuPanel(); 
+            try {
+                await client.Auth.LoginAsync(user, pass);
+                ShowMainMenuPanel();
+            } catch (System.Exception e) {
+                Debug.LogError("Login failed: " + e.Message);
+            }
         }
     }
 
-    private void OnRegisterClicked()
+    private async void OnRegisterClicked()
     {
         string user = usernameInput.text;
         string pass = passwordInput.text;
         if (!string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(pass))
         {
-            networkClient.Register(user, pass);
+            try {
+                await client.Auth.RegisterAsync(user, pass);
+                Debug.Log("Registered!");
+            } catch (System.Exception e) {
+                Debug.LogError("Register failed: " + e.Message);
+            }
         }
     }
 
-    private void OnLeaveLobbyClicked()
+    private async void OnLeaveLobbyClicked()
     {
-        networkClient.LeaveLobby(currentLobbyId);
+        await client.Lobby.LeaveLobbyAsync(currentLobbyId);
         currentLobbyId = "";
         ShowMainMenuPanel();
     }
@@ -90,9 +112,14 @@ public class ArenaNetUIManager : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(chatInput.text) && !string.IsNullOrEmpty(currentLobbyId))
         {
-            networkClient.SendChatMessage(currentLobbyId, chatInput.text);
+            client.Chat.SendMessage(currentLobbyId, chatInput.text);
             chatInput.text = "";
         }
+    }
+
+    void OnDestroy()
+    {
+        client?.Dispose();
     }
 
     // Call this from NetworkClient when CREATE_LOBBY_RESPONSE or JOIN_LOBBY_RESPONSE is received.

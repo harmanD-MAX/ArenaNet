@@ -1,5 +1,7 @@
 #include "Queue.h"
 #include <algorithm>
+#include "../config/ConfigManager.h"
+#include "../common/Logger.h"
 
 namespace arenanet {
 namespace matchmaking {
@@ -41,7 +43,7 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
     std::sort(entries_.begin(), entries_.end(), 
         [](const QueueEntry& a, const QueueEntry& b) { return a.joinTimeMs < b.joinTimeMs; });
 
-    // O(N^2) search for combinations. This is fine for MVP.
+    // O(N^2) search for combinations
     for (size_t i = 0; i < entries_.size(); ++i) {
         const auto& baseEntry = entries_[i];
         int currentCount = baseEntry.members.size();
@@ -49,7 +51,16 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
         if (currentCount > targetTotalPlayers) continue;
         
         long long waitSeconds = (currentTimeMs - baseEntry.joinTimeMs) / 1000;
-        int tolerance = 100 + (waitSeconds / 10) * 100; // expand 100 rating every 10s
+        int queueTimeout = config::ConfigManager::getInstance().getQueueTimeoutSeconds();
+        if (waitSeconds > queueTimeout) {
+            // Remove them due to timeout
+            entries_.erase(entries_.begin() + i);
+            common::Logger::info("Matchmaking queue timeout for a party. Removed from queue.");
+            return match; // return empty, will continue loop next tick
+        }
+        
+        int expansionRate = config::ConfigManager::getInstance().getMatchmakingExpansionRate();
+        int tolerance = 100 + (waitSeconds / 10) * expansionRate; // expand rating every 10s
         
         std::vector<size_t> matchedIndices;
         matchedIndices.push_back(i);

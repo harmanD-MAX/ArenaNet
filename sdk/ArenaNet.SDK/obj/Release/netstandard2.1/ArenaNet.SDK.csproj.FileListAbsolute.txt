@@ -1,0 +1,13 @@
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/bin/Release/netstandard2.1/ArenaNet.SDK.deps.json
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/bin/Release/netstandard2.1/ArenaNet.SDK.dll
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/bin/Release/netstandard2.1/ArenaNet.SDK.pdb
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/bin/Release/netstandard2.1/ArenaNet.SDK.xml
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.csproj.AssemblyReference.cache
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.GeneratedMSBuildEditorConfig.editorconfig
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.AssemblyInfoInputs.cache
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.AssemblyInfo.cs
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.csproj.CoreCompileInputs.cache
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.sourcelink.json
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.dll
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.xml
+/Users/harman/Desktop/ArenaNet/sdk/ArenaNet.SDK/obj/Release/netstandard2.1/ArenaNet.SDK.pdb

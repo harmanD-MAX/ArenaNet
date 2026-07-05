@@ -33,6 +33,9 @@ void LobbyManager::handlePacket(std::shared_ptr<network::Connection> conn, const
         case network::PacketType::PLAYER_READY_REQUEST:
             handlePlayerReady(conn, packet);
             break;
+        case network::PacketType::KICK_PLAYER_REQUEST:
+            handleKickPlayer(conn, packet);
+            break;
         default:
             break;
     }
@@ -55,8 +58,11 @@ void LobbyManager::broadcastToLobby(const common::LobbyId& lobbyId, const networ
 void LobbyManager::handleCreateLobby(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     std::string lobbyId = generateLobbyId();
     common::PlayerId ownerId = conn->getPlayerId();
+    
+    bool isPrivate = packet.payload.value("is_private", false);
+    int maxCapacity = packet.payload.value("max_capacity", 4);
 
-    auto newLobby = std::make_shared<Lobby>(lobbyId, ownerId);
+    auto newLobby = std::make_shared<Lobby>(lobbyId, ownerId, maxCapacity, isPrivate);
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -153,10 +159,12 @@ void LobbyManager::handleListLobbies(std::shared_ptr<network::Connection> conn, 
     {
         std::lock_guard<std::mutex> lock(mutex_);
         for (const auto& [id, lobby] : lobbies_) {
+            if (lobby->isPrivate()) continue; // Skip private lobbies
             nlohmann::json l;
             l["lobby_id"] = id;
             l["owner_id"] = lobby->getOwnerId();
             l["player_count"] = lobby->getPlayers().size();
+            l["max_capacity"] = lobby->getPlayers().size(); // Note: get actual max later if needed
             lobbiesArr.push_back(l);
         }
     }
@@ -199,6 +207,85 @@ void LobbyManager::handlePlayerReady(std::shared_ptr<network::Connection> conn, 
             
             broadcastToLobby(lobbyId, matchStart);
             common::Logger::info("Lobby " + lobbyId + " is fully ready. Match starting!");
+        }
+    }
+}
+
+void LobbyManager::handleKickPlayer(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
+    if (!packet.payload.contains("lobby_id") || !packet.payload.contains("target_id")) return;
+    
+    std::string lobbyId = packet.payload["lobby_id"];
+    common::PlayerId targetId = packet.payload["target_id"];
+    common::PlayerId ownerId = conn->getPlayerId();
+    
+    std::shared_ptr<Lobby> lobby;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = lobbies_.find(lobbyId);
+        if (it != lobbies_.end()) {
+            lobby = it->second;
+        }
+    }
+    
+    if (lobby && lobby->getOwnerId() == ownerId) {
+        if (lobby->removePlayer(targetId)) {
+            broadcastToLobby(lobbyId, lobby->getLobbyStatePacket());
+            common::Logger::info("Player " + std::to_string(targetId) + " kicked from lobby " + lobbyId);
+        }
+    }
+}
+
+void LobbyManager::handlePlayerDisconnect(common::PlayerId playerId) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    playerConnections_.erase(playerId);
+    
+    for (auto& [id, lobby] : lobbies_) {
+        auto players = lobby->getPlayers();
+        if (std::find(players.begin(), players.end(), playerId) != players.end()) {
+            lobby->setPlayerConnected(playerId, false);
+            broadcastToLobby(id, lobby->getLobbyStatePacket());
+            common::Logger::info("Player " + std::to_string(playerId) + " marked as disconnected in lobby " + id);
+            
+            // Spawn a detached thread to handle the timeout
+            std::thread([this, id, playerId]() {
+                std::this_thread::sleep_for(std::chrono::seconds(30)); // Reconnect timeout
+                std::shared_ptr<Lobby> targetLobby;
+                {
+                    std::lock_guard<std::mutex> innerLock(mutex_);
+                    auto it = lobbies_.find(id);
+                    if (it != lobbies_.end()) targetLobby = it->second;
+                }
+                
+                if (targetLobby) {
+                    // If still not in playerConnections, they haven't reconnected
+                    bool remove = false;
+                    {
+                        std::lock_guard<std::mutex> innerLock(mutex_);
+                        if (playerConnections_.find(playerId) == playerConnections_.end()) {
+                            remove = true;
+                        }
+                    }
+                    if (remove && targetLobby->removePlayer(playerId)) {
+                        broadcastToLobby(id, targetLobby->getLobbyStatePacket());
+                        common::Logger::info("Player " + std::to_string(playerId) + " removed from lobby " + id + " due to timeout.");
+                    }
+                }
+            }).detach();
+        }
+    }
+}
+
+void LobbyManager::handlePlayerReconnect(common::PlayerId playerId, std::shared_ptr<network::Connection> conn) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    playerConnections_[playerId] = conn;
+    
+    for (auto& [id, lobby] : lobbies_) {
+        auto players = lobby->getPlayers();
+        if (std::find(players.begin(), players.end(), playerId) != players.end()) {
+            lobby->setPlayerConnected(playerId, true);
+            conn->send(lobby->getLobbyStatePacket());
+            broadcastToLobby(id, lobby->getLobbyStatePacket());
+            common::Logger::info("Player " + std::to_string(playerId) + " reconnected to lobby " + id);
         }
     }
 }

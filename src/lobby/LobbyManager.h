@@ -23,6 +23,9 @@ public:
     // Broadcast a packet to everyone in the lobby
     void broadcastToLobby(const common::LobbyId& lobbyId, const network::Packet& packet);
 
+    void handlePlayerDisconnect(common::PlayerId playerId);
+    void handlePlayerReconnect(common::PlayerId playerId, std::shared_ptr<network::Connection> conn);
+
 private:
     LobbyManager() = default;
 
@@ -31,6 +34,7 @@ private:
     void handleLeaveLobby(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     void handleListLobbies(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     void handlePlayerReady(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
+    void handleKickPlayer(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
 
     std::string generateLobbyId();
 

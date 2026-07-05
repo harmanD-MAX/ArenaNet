@@ -19,6 +19,11 @@ void ConfigManager::loadFromEnvironment() {
     tcpPort_ = getEnvOrDefaultInt("TCP_PORT", 8080);
     udpPort_ = getEnvOrDefaultInt("UDP_PORT", 8081);
 
+    matchSize_ = getEnvOrDefaultInt("MATCH_SIZE", 2);
+    matchmakingExpansionRate_ = getEnvOrDefaultInt("MATCH_EXPANSION_RATE", 100);
+    queueTimeoutSeconds_ = getEnvOrDefaultInt("QUEUE_TIMEOUT", 300);
+    reconnectTimeoutSeconds_ = getEnvOrDefaultInt("RECONNECT_TIMEOUT", 30);
+
     common::Logger::info("Configuration loaded from environment variables.");
 }
 

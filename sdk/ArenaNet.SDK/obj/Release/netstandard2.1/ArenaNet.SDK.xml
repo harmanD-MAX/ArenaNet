@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ArenaNet.SDK</name>
+    </assembly>
+    <members>
+        <member name="T:ArenaNet.SDK.AuthService">
+            <summary>
+            Service responsible for handling user authentication, including login, registration, and session recovery.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.AuthService.LoginAsync(System.String,System.String)">
+            <summary>
+            Authenticates a user with a username and password and initializes the session.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.AuthService.ReconnectAsync(System.String)">
+            <summary>
+            Restores an existing session using a JWT token.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.AuthService.RegisterAsync(System.String,System.String)">
+            <summary>
+            Registers a new user account with the provided credentials.
+            </summary>
+        </member>
+        <member name="T:ArenaNet.SDK.LeaderboardService">
+            <summary>
+            Service for retrieving player rankings and match history.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LeaderboardService.GetLeaderboardAsync">
+            <summary>
+            Retrieves the global leaderboard of top players.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LeaderboardService.GetMatchHistoryAsync">
+            <summary>
+            Retrieves the recent match history for the current player.
+            </summary>
+        </member>
+        <member name="T:ArenaNet.SDK.LobbyService">
+            <summary>
+            Service for managing lobbies, player readiness, and game sessions.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LobbyService.CreateLobbyAsync(System.Boolean,System.Int32)">
+            <summary>
+            Creates a new lobby and returns the lobby ID.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LobbyService.JoinLobbyAsync(System.String)">
+            <summary>
+            Joins an existing lobby by its ID.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LobbyService.LeaveLobbyAsync(System.String)">
+            <summary>
+            Leaves the currently connected lobby.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LobbyService.SetReadyAsync(System.String,System.Boolean)">
+            <summary>
+            Sets the ready state of the current player in the lobby.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.LobbyService.KickPlayerAsync(System.String,System.Int32)">
+            <summary>
+            Kicks a specific player from the lobby (Host only).
+            </summary>
+        </member>
+        <member name="T:ArenaNet.SDK.MatchmakingService">
+            <summary>
+            Service for handling matchmaking queues and match found events.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.MatchmakingService.JoinQueueAsync">
+            <summary>
+            Joins the global matchmaking queue.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.MatchmakingService.LeaveQueue">
+            <summary>
+            Leaves the matchmaking queue.
+            </summary>
+        </member>
+        <member name="T:ArenaNet.SDK.SocialService">
+            <summary>
+            Service for handling friends and party features.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.GetFriendsAsync">
+            <summary>
+            Retrieves the list of friends for the current player.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.SendFriendRequest(System.Int32)">
+            <summary>
+            Sends a friend request to a specific player ID.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.AcceptFriendRequest(System.Int32)">
+            <summary>
+            Accepts a pending friend request from a player.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.CreateParty">
+            <summary>
+            Creates a new party.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.InviteToParty(System.Int32)">
+            <summary>
+            Invites a player to the current party.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.AcceptPartyInvite(System.String)">
+            <summary>
+            Accepts a party invite.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.LeaveParty">
+            <summary>
+            Leaves the current party.
+            </summary>
+        </member>
+    </members>
+</doc>
