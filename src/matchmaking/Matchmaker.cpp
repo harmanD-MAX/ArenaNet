@@ -44,10 +44,12 @@ void Matchmaker::handlePacket(std::shared_ptr<network::Connection> conn, const n
     }
 }
 
+// ---------------------------------------------------------
+// QUEUE MANAGEMENT
+// ---------------------------------------------------------
+
 void Matchmaker::handleJoinQueue(std::shared_ptr<network::Connection> conn, const network::Packet& packet) {
     common::PlayerId playerId = conn->getPlayerId();
-    
-    // Check if player is in a party
     auto party = party::PartyManager::getInstance().getPartyOfPlayer(playerId);
     
     QueueEntry entry;
@@ -66,7 +68,6 @@ void Matchmaker::handleJoinQueue(std::shared_ptr<network::Connection> conn, cons
         entry.members = {playerId};
     }
     
-    // Calculate average rating, but default to 1000 if not found
     int totalRating = 0;
     for (auto pId : entry.members) {
         try {
@@ -99,9 +100,12 @@ void Matchmaker::removePlayerFromQueue(common::PlayerId playerId) {
     common::Logger::info("Player " + std::to_string(playerId) + " (and their party if any) left the matchmaking queue.");
 }
 
+// ---------------------------------------------------------
+// MATCHING LOOP
+// ---------------------------------------------------------
+
 void Matchmaker::matchLoop() {
     while (isRunning_) {
-        // We'll try to find 2 players (or 2 party sizes that sum to 2) for a match.
         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         auto matched = queue_.getMatch(2, now);
         
