@@ -5,7 +5,7 @@
 #include <string>
 #include <mutex>
 #include "../common/Types.h"
-#include "../common/Error.h"
+
 
 namespace arenanet {
 namespace database {

@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, ttk
 import socket
 import struct
 import json
@@ -17,6 +17,8 @@ class ArenaNetGUI:
         self.current_lobby = ""
         self.token = ""
         self.player_id = ""
+        self.party_state = None
+        self.match_players = []
         
         self.setup_ui()
         
@@ -77,8 +79,14 @@ class ArenaNetGUI:
         tk.Button(v2_frame, text="Leave Party", command=self.do_leave_party).grid(row=1, column=3, pady=5)
         
         tk.Button(v2_frame, text="Queue Match", command=self.do_queue_match).grid(row=2, column=0, pady=5)
-        tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=2, column=1, pady=5)
-        tk.Button(v2_frame, text="Simulate Match Win", command=self.do_simulate_match_win).grid(row=2, column=2, pady=5)
+        
+        tk.Label(v2_frame, text="Opponents:").grid(row=2, column=1, pady=5)
+        self.opponents_var = tk.StringVar(value="Any")
+        opp_cb = ttk.Combobox(v2_frame, textvariable=self.opponents_var, values=["Any", "1", "2", "3", "4", "5"], state="readonly", width=5)
+        opp_cb.grid(row=2, column=2, pady=5)
+        
+        tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=2, column=3, pady=5)
+        tk.Button(v2_frame, text="Simulate Match Win", command=self.do_simulate_match_win).grid(row=2, column=4, pady=5)
 
         # Bottom Frame - Chat & Logs
         bottom_frame = tk.Frame(self.root)
@@ -151,6 +159,17 @@ class ArenaNetGUI:
                 self.log("Register Success! You can now login.")
             else:
                 self.log("Register Failed: " + payload.get("error_msg", ""))
+        elif ptype == 21: # JOIN_QUEUE_RESPONSE
+            if payload.get("success"):
+                self.log("Queue joined successfully. Waiting for match...")
+            else:
+                self.log("Queue Error: " + payload.get("error_msg", "Unknown error"))
+        elif ptype == 23: # MATCH_FOUND_EVENT
+            self.current_lobby = payload.get("match_id", "")
+            self.match_players = payload.get("players", [])
+            self.log(f">>> MATCH STARTED! ID: {self.current_lobby} <<<")
+            self.lobby_id_entry.delete(0, tk.END)
+            self.lobby_id_entry.insert(0, self.current_lobby)
         elif ptype == 11: # CREATE_LOBBY_RESPONSE
             self.current_lobby = payload.get("lobby_id")
             self.log(f"Created Lobby: {self.current_lobby}")
@@ -164,9 +183,8 @@ class ArenaNetGUI:
                 self.log("Failed to join lobby.")
         elif ptype == 15: # LOBBY_STATE_UPDATE
             self.log(f"Lobby State: {json.dumps(payload)}")
-        elif ptype == 23: # MATCH_FOUND_EVENT
-            self.log(f">>> MATCH STARTED! ID: {payload.get('match_id')} <<<")
-            self.current_lobby = payload.get("match_id") # Match ID becomes chat ID
+        elif ptype == 24: # MATCH_TIMEOUT_EVENT
+            self.log(f"--- MATCHMAKING TIMEOUT: {payload.get('message', 'No opponents found.')} ---")
         elif ptype == 30: # CHAT_MESSAGE
             sender = payload.get("sender_id")
             msg = payload.get("message")
@@ -185,6 +203,7 @@ class ArenaNetGUI:
             for f in payload.get("friends", []):
                 self.log(f"ID: {f['id']} | {f['username']} | Status: {f['status']} | Presence: {f['presence']}")
         elif ptype == 64: # PARTY_STATE_UPDATE
+            self.party_state = payload
             self.log(f"Party State: {json.dumps(payload)}")
         elif ptype == 72: # GET_MATCH_HISTORY_RESPONSE
             self.log("--- Match History ---")
@@ -278,8 +297,10 @@ class ArenaNetGUI:
         self.log("Requested to leave party.")
         
     def do_queue_match(self):
-        self.send_packet(20, {}) # JOIN_QUEUE_REQUEST
-        self.log("Joined matchmaking queue.")
+        val = self.opponents_var.get()
+        opps = -1 if val == "Any" else int(val)
+        self.send_packet(20, {"opponents": opps}) # JOIN_QUEUE_REQUEST
+        self.log(f"Joined matchmaking queue, looking for {val} opponent(s).")
         
     def do_match_history(self):
         self.send_packet(71, {})
@@ -289,20 +310,20 @@ class ArenaNetGUI:
             self.log("You must be in a match to simulate a win!")
             return
             
-        target = self.target_entry.get()
-        players_list = [self.player_id]
-        if target.isdigit():
-            players_list.append(int(target))
+        winners_list = [self.player_id]
+        if hasattr(self, 'party_state') and self.party_state and self.player_id in self.party_state.get("members", []):
+            winners_list = self.party_state["members"]
         
         # In a real game, the server or a trusted authority reports this.
-        # For testing, we send a mock packet with ourselves as winner and the target as loser.
+        # For testing, we send a mock packet with ourselves and our party as winners.
         self.send_packet(70, {
             "match_id": self.current_lobby,
             "winner_id": self.player_id,
+            "winners": winners_list,
             "duration_seconds": 300,
-            "players": players_list
+            "players": getattr(self, 'match_players', [self.player_id])
         })
-        self.log(f"Reported match {self.current_lobby} as won against {target}!")
+        self.log(f"Reported match {self.current_lobby} as won for team {winners_list}!")
 
 if __name__ == "__main__":
     root = tk.Tk()

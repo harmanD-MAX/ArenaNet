@@ -1,6 +1,7 @@
 #include "PostgresClient.h"
 #include "../common/Logger.h"
-#include <iostream>
+#include "../common/Error.h"
+
 
 namespace arenanet {
 namespace database {
@@ -86,9 +87,9 @@ common::PlayerId PostgresClient::createUser(const std::string& username, const s
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::work W(*conn_);
-        pqxx::result R = W.exec_params(
+        pqxx::result R = W.exec(
             "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id",
-            username, passwordHash
+            pqxx::params{username, passwordHash}
         );
         W.commit();
         if (!R.empty()) {
@@ -109,10 +110,7 @@ common::PlayerId PostgresClient::verifyUser(const std::string& username, const s
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::nontransaction N(*conn_);
-        pqxx::result R = N.exec_params(
-            "SELECT id FROM users WHERE username = $1 AND password_hash = $2",
-            username, passwordHash
-        );
+        pqxx::result R = N.exec("SELECT id FROM users WHERE username = $1 AND password_hash = $2", pqxx::params{username, passwordHash});
         if (!R.empty()) {
             return R[0][0].as<common::PlayerId>();
         }
@@ -129,9 +127,9 @@ common::PlayerProfile PostgresClient::getPlayerProfile(common::PlayerId playerId
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::nontransaction N(*conn_);
-        pqxx::result R = N.exec_params(
+        pqxx::result R = N.exec(
             "SELECT id, username, rating, wins, losses FROM users WHERE id = $1",
-            playerId
+            pqxx::params{playerId}
         );
         if (!R.empty()) {
             common::PlayerProfile profile;
@@ -154,9 +152,9 @@ void PostgresClient::updatePlayerStats(common::PlayerId playerId, bool isWin) {
     try {
         pqxx::work W(*conn_);
         if (isWin) {
-            W.exec_params("UPDATE users SET wins = wins + 1, rating = rating + 25 WHERE id = $1", playerId);
+            W.exec("UPDATE users SET wins = wins + 1, rating = rating + 25 WHERE id = $1", pqxx::params{playerId});
         } else {
-            W.exec_params("UPDATE users SET losses = losses + 1, rating = GREATEST(0, rating - 15) WHERE id = $1", playerId);
+            W.exec("UPDATE users SET losses = losses + 1, rating = GREATEST(0, rating - 15) WHERE id = $1", pqxx::params{playerId});
         }
         W.commit();
     } catch (const std::exception& e) {
@@ -169,9 +167,9 @@ std::vector<common::PlayerProfile> PostgresClient::getTopPlayers(int limit) {
     std::vector<common::PlayerProfile> topPlayers;
     try {
         pqxx::nontransaction N(*conn_);
-        pqxx::result R = N.exec_params(
+        pqxx::result R = N.exec(
             "SELECT id, username, rating, wins, losses FROM users ORDER BY rating DESC, wins DESC LIMIT $1",
-            limit
+            pqxx::params{limit}
         );
         for (auto row : R) {
             common::PlayerProfile profile;
@@ -193,11 +191,11 @@ int PostgresClient::getPlayerRank(common::PlayerId playerId) {
     try {
         pqxx::nontransaction N(*conn_);
         // Use a subquery to calculate rank
-        pqxx::result R = N.exec_params(
+        pqxx::result R = N.exec(
             "SELECT rank FROM ("
             "  SELECT id, RANK() OVER (ORDER BY rating DESC, wins DESC) as rank FROM users"
             ") ranked_users WHERE id = $1",
-            playerId
+            pqxx::params{playerId}
         );
         if (!R.empty()) {
             return R[0]["rank"].as<int>();
@@ -214,10 +212,10 @@ void PostgresClient::sendFriendRequest(common::PlayerId sender, common::PlayerId
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::work W(*conn_);
-        W.exec_params(
+        W.exec(
             "INSERT INTO friends (player1_id, player2_id, status) VALUES ($1, $2, 'PENDING') "
             "ON CONFLICT (player1_id, player2_id) DO NOTHING",
-            sender, receiver
+            pqxx::params{sender, receiver}
         );
         W.commit();
     } catch (const std::exception& e) {
@@ -229,15 +227,15 @@ void PostgresClient::acceptFriendRequest(common::PlayerId receiver, common::Play
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::work W(*conn_);
-        W.exec_params(
+        W.exec(
             "UPDATE friends SET status = 'ACCEPTED' WHERE player1_id = $1 AND player2_id = $2",
-            sender, receiver
+            pqxx::params{sender, receiver}
         );
         
-        W.exec_params(
+        W.exec(
             "INSERT INTO friends (player1_id, player2_id, status) VALUES ($1, $2, 'ACCEPTED') "
             "ON CONFLICT (player1_id, player2_id) DO UPDATE SET status = 'ACCEPTED'",
-            receiver, sender
+            pqxx::params{receiver, sender}
         );
         W.commit();
     } catch (const std::exception& e) {
@@ -249,7 +247,7 @@ void PostgresClient::rejectFriendRequest(common::PlayerId receiver, common::Play
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::work W(*conn_);
-        W.exec_params("DELETE FROM friends WHERE player1_id = $1 AND player2_id = $2", sender, receiver);
+        W.exec("DELETE FROM friends WHERE player1_id = $1 AND player2_id = $2", pqxx::params{sender, receiver});
         W.commit();
     } catch (const std::exception& e) {
         common::Logger::error("Failed to reject friend request: " + std::string(e.what()));
@@ -260,7 +258,7 @@ void PostgresClient::removeFriend(common::PlayerId player1, common::PlayerId pla
     std::lock_guard<std::mutex> lock(dbMutex_);
     try {
         pqxx::work W(*conn_);
-        W.exec_params("DELETE FROM friends WHERE (player1_id = $1 AND player2_id = $2) OR (player1_id = $2 AND player2_id = $1)", player1, player2);
+        W.exec("DELETE FROM friends WHERE (player1_id = $1 AND player2_id = $2) OR (player1_id = $2 AND player2_id = $1)", pqxx::params{player1, player2});
         W.commit();
     } catch (const std::exception& e) {
         common::Logger::error("Failed to remove friend: " + std::string(e.what()));
@@ -273,7 +271,7 @@ std::vector<common::FriendInfo> PostgresClient::getFriendsList(common::PlayerId 
     try {
         pqxx::nontransaction N(*conn_);
         
-        pqxx::result R = N.exec_params(
+        pqxx::result R = N.exec(
             "SELECT f.player2_id as friend_id, u.username, f.status "
             "FROM friends f JOIN users u ON f.player2_id = u.id "
             "WHERE f.player1_id = $1 "
@@ -282,7 +280,7 @@ std::vector<common::FriendInfo> PostgresClient::getFriendsList(common::PlayerId 
             "CASE WHEN f.status = 'PENDING' THEN 'INCOMING_REQUEST' ELSE f.status END as status "
             "FROM friends f JOIN users u ON f.player1_id = u.id "
             "WHERE f.player2_id = $1 AND f.status = 'PENDING'",
-            playerId
+            pqxx::params{playerId}
         );
         
         for (auto row : R) {
@@ -307,19 +305,19 @@ void PostgresClient::recordMatchResult(const std::string& matchId, common::Playe
         pqxx::work W(*conn_);
         
         if (winnerId == 0) {
-             W.exec_params(
+             W.exec(
                 "INSERT INTO matches (id, winner_id, duration_seconds) VALUES ($1, NULL, $2)",
-                matchId, durationSeconds
+                pqxx::params{matchId, durationSeconds}
             );
         } else {
-             W.exec_params(
+             W.exec(
                 "INSERT INTO matches (id, winner_id, duration_seconds) VALUES ($1, $2, $3)",
-                matchId, winnerId, durationSeconds
+                pqxx::params{matchId, winnerId, durationSeconds}
             );
         }
        
         for (auto pId : players) {
-            W.exec_params("INSERT INTO match_players (match_id, player_id) VALUES ($1, $2)", matchId, pId);
+            W.exec("INSERT INTO match_players (match_id, player_id) VALUES ($1, $2)", pqxx::params{matchId, pId});
         }
         
         W.commit();
@@ -334,14 +332,14 @@ std::vector<common::MatchHistoryEntry> PostgresClient::getMatchHistory(common::P
     try {
         pqxx::nontransaction N(*conn_);
         
-        pqxx::result R = N.exec_params(
+        pqxx::result R = N.exec(
             "SELECT m.id, m.winner_id, m.duration_seconds, m.timestamp::text as ts "
             "FROM matches m "
             "JOIN match_players mp ON m.id = mp.match_id "
             "WHERE mp.player_id = $1 "
             "ORDER BY m.timestamp DESC "
             "LIMIT $2",
-            playerId, limit
+            pqxx::params{playerId, limit}
         );
         
         for (auto row : R) {
@@ -351,11 +349,11 @@ std::vector<common::MatchHistoryEntry> PostgresClient::getMatchHistory(common::P
             entry.durationSeconds = row["duration_seconds"].as<int>();
             entry.timestamp = row["ts"].as<std::string>();
             
-            pqxx::result pr = N.exec_params(
+            pqxx::result pr = N.exec(
                 "SELECT u.username FROM users u "
                 "JOIN match_players mp ON u.id = mp.player_id "
                 "WHERE mp.match_id = $1",
-                entry.matchId
+                pqxx::params{entry.matchId}
             );
             
             for (auto pRow : pr) {

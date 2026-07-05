@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ArenaNet.SDK.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a60c16d77829f63ed6e2dd5c913f74eeac2a3250")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab21b51df956cc9734b69209dcf87a8b02d740d2")]
 [assembly: System.Reflection.AssemblyProductAttribute("ArenaNet.SDK.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ArenaNet.SDK.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

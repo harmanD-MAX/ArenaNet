@@ -74,9 +74,10 @@
             Service for handling matchmaking queues and match found events.
             </summary>
         </member>
-        <member name="M:ArenaNet.SDK.MatchmakingService.JoinQueueAsync">
+        <member name="M:ArenaNet.SDK.MatchmakingService.JoinQueueAsync(System.Int32)">
             <summary>
             Joins the global matchmaking queue.
+            <param name="opponents">Number of opponents to search for, or -1 for 'Any' match size.</param>
             </summary>
         </member>
         <member name="M:ArenaNet.SDK.MatchmakingService.LeaveQueue">
@@ -117,6 +118,11 @@
         <member name="M:ArenaNet.SDK.SocialService.AcceptPartyInvite(System.String)">
             <summary>
             Accepts a party invite.
+            </summary>
+        </member>
+        <member name="M:ArenaNet.SDK.SocialService.LeaveParty">
+            <summary>
+            Leaves the current party.
             </summary>
         </member>
     </members>

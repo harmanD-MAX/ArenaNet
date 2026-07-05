@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <unordered_map>
-#include <mutex>
+
+#include <vector>
 #include <thread>
 #include <atomic>
 #include "Queue.h"
@@ -32,6 +32,7 @@ private:
 
     void matchLoop();
     void notifyMatch(const std::vector<QueueEntry>& matchedPlayers);
+    void notifyTimeout(const std::vector<QueueEntry>& timedOut);
 
     void handleJoinQueue(std::shared_ptr<network::Connection> conn, const network::Packet& packet);
     void handleLeaveQueue(std::shared_ptr<network::Connection> conn, const network::Packet& packet);

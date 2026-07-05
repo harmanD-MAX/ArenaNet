@@ -6,7 +6,7 @@
     <title>ArenaNet SDK</title>
     <authors>ArenaNet</authors>
     <description>A C# SDK for connecting Unity and .NET applications to the ArenaNet multiplayer backend.</description>
-    <repository type="git" commit="a60c16d77829f63ed6e2dd5c913f74eeac2a3250" />
+    <repository type="git" commit="ab21b51df956cc9734b69209dcf87a8b02d740d2" />
     <dependencies>
       <group targetFramework=".NETStandard2.1">
         <dependency id="Newtonsoft.Json" version="13.0.3" exclude="Build,Analyzers" />

@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 #include <functional>
+#include "../common/Types.h"
 #include "Packet.h"
 
 namespace arenanet {
