@@ -8,18 +8,20 @@ namespace arenanet {
 namespace matchmaking {
 
 struct QueueEntry {
-    common::PlayerId playerId;
-    int rating;
+    std::string partyId; // Empty string if solo
+    std::vector<common::PlayerId> members;
+    int averageRating;
     long long joinTimeMs;
 };
 
 class Queue {
 public:
-    void addPlayer(common::PlayerId playerId, int rating, long long timestamp);
-    void removePlayer(common::PlayerId playerId);
+    void addEntry(const QueueEntry& entry);
+    void removePlayer(common::PlayerId playerId); // Removes the entire entry that contains this player
     
-    // Simple matchmaking: just find first N players
-    std::vector<QueueEntry> getMatch(int playersNeeded);
+    // Rating-based matchmaking
+    // Returns a list of entries that form a match, or empty if no match found.
+    std::vector<QueueEntry> getMatch(int targetTotalPlayers, long long currentTimeMs);
 
 private:
     std::mutex mutex_;

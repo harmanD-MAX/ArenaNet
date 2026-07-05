@@ -35,6 +35,17 @@ public:
     std::vector<common::PlayerProfile> getTopPlayers(int limit = 10);
     int getPlayerRank(common::PlayerId playerId);
 
+    // Friends
+    void sendFriendRequest(common::PlayerId sender, common::PlayerId receiver);
+    void acceptFriendRequest(common::PlayerId receiver, common::PlayerId sender);
+    void rejectFriendRequest(common::PlayerId receiver, common::PlayerId sender);
+    void removeFriend(common::PlayerId player1, common::PlayerId player2);
+    std::vector<common::FriendInfo> getFriendsList(common::PlayerId playerId);
+
+    // Match History
+    void recordMatchResult(const std::string& matchId, common::PlayerId winnerId, int durationSeconds, const std::vector<common::PlayerId>& players);
+    std::vector<common::MatchHistoryEntry> getMatchHistory(common::PlayerId playerId, int limit = 10);
+
 private:
     PostgresClient() = default;
 

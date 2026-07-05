@@ -48,6 +48,35 @@ void PostgresClient::initializeSchema() {
             ");"
         );
 
+        // Create Friends table
+        W.exec(
+            "CREATE TABLE IF NOT EXISTS friends ("
+            "player1_id INTEGER REFERENCES users(id) ON DELETE CASCADE, "
+            "player2_id INTEGER REFERENCES users(id) ON DELETE CASCADE, "
+            "status VARCHAR(20) DEFAULT 'PENDING', " // 'PENDING' or 'ACCEPTED'
+            "PRIMARY KEY (player1_id, player2_id)"
+            ");"
+        );
+
+        // Create Matches table
+        W.exec(
+            "CREATE TABLE IF NOT EXISTS matches ("
+            "id VARCHAR(50) PRIMARY KEY, "
+            "winner_id INTEGER REFERENCES users(id) ON DELETE SET NULL, "
+            "duration_seconds INTEGER DEFAULT 0, "
+            "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            ");"
+        );
+
+        // Create Match Players table
+        W.exec(
+            "CREATE TABLE IF NOT EXISTS match_players ("
+            "match_id VARCHAR(50) REFERENCES matches(id) ON DELETE CASCADE, "
+            "player_id INTEGER REFERENCES users(id) ON DELETE CASCADE, "
+            "PRIMARY KEY (match_id, player_id)"
+            ");"
+        );
+
         W.commit();
         common::Logger::info("Database schema initialized.");
     } catch (const std::exception& e) {
@@ -179,6 +208,182 @@ int PostgresClient::getPlayerRank(common::PlayerId playerId) {
         common::Logger::error("Failed to get player rank: " + std::string(e.what()));
     }
     return -1; // Return -1 on error or not found
+}
+
+// ---------------------------------------------------------
+// FRIEND SYSTEM
+// ---------------------------------------------------------
+
+void PostgresClient::sendFriendRequest(common::PlayerId sender, common::PlayerId receiver) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::work W(*conn_);
+        // Insert if not exists
+        W.exec_params(
+            "INSERT INTO friends (player1_id, player2_id, status) VALUES ($1, $2, 'PENDING') "
+            "ON CONFLICT (player1_id, player2_id) DO NOTHING",
+            sender, receiver
+        );
+        W.commit();
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to send friend request: " + std::string(e.what()));
+    }
+}
+
+void PostgresClient::acceptFriendRequest(common::PlayerId receiver, common::PlayerId sender) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::work W(*conn_);
+        // Update the original request status to ACCEPTED
+        W.exec_params(
+            "UPDATE friends SET status = 'ACCEPTED' WHERE player1_id = $1 AND player2_id = $2",
+            sender, receiver
+        );
+        
+        // Ensure bidirectional relationship for easier querying
+        W.exec_params(
+            "INSERT INTO friends (player1_id, player2_id, status) VALUES ($1, $2, 'ACCEPTED') "
+            "ON CONFLICT (player1_id, player2_id) DO UPDATE SET status = 'ACCEPTED'",
+            receiver, sender
+        );
+        W.commit();
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to accept friend request: " + std::string(e.what()));
+    }
+}
+
+void PostgresClient::rejectFriendRequest(common::PlayerId receiver, common::PlayerId sender) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::work W(*conn_);
+        W.exec_params("DELETE FROM friends WHERE player1_id = $1 AND player2_id = $2", sender, receiver);
+        W.commit();
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to reject friend request: " + std::string(e.what()));
+    }
+}
+
+void PostgresClient::removeFriend(common::PlayerId player1, common::PlayerId player2) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::work W(*conn_);
+        W.exec_params("DELETE FROM friends WHERE (player1_id = $1 AND player2_id = $2) OR (player1_id = $2 AND player2_id = $1)", player1, player2);
+        W.commit();
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to remove friend: " + std::string(e.what()));
+    }
+}
+
+std::vector<common::FriendInfo> PostgresClient::getFriendsList(common::PlayerId playerId) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    std::vector<common::FriendInfo> friends;
+    try {
+        pqxx::nontransaction N(*conn_);
+        
+        // Find all relationships where the player is involved.
+        // If they are player1, player2 is the friend.
+        // If they are player2, player1 is the friend (and they are the receiver of a pending request).
+        pqxx::result R = N.exec_params(
+            "SELECT f.player2_id as friend_id, u.username, f.status "
+            "FROM friends f JOIN users u ON f.player2_id = u.id "
+            "WHERE f.player1_id = $1 "
+            "UNION "
+            "SELECT f.player1_id as friend_id, u.username, "
+            "CASE WHEN f.status = 'PENDING' THEN 'INCOMING_REQUEST' ELSE f.status END as status "
+            "FROM friends f JOIN users u ON f.player1_id = u.id "
+            "WHERE f.player2_id = $1 AND f.status = 'PENDING'",
+            playerId
+        );
+        
+        for (auto row : R) {
+            common::FriendInfo info;
+            info.id = row["friend_id"].as<common::PlayerId>();
+            info.username = row["username"].as<std::string>();
+            info.status = row["status"].as<std::string>();
+            info.presence = "OFFLINE"; // To be filled in later by Redis
+            friends.push_back(info);
+        }
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to get friends list: " + std::string(e.what()));
+    }
+    return friends;
+}
+
+// ---------------------------------------------------------
+// MATCH HISTORY SYSTEM
+// ---------------------------------------------------------
+
+void PostgresClient::recordMatchResult(const std::string& matchId, common::PlayerId winnerId, int durationSeconds, const std::vector<common::PlayerId>& players) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    try {
+        pqxx::work W(*conn_);
+        
+        // Insert the match
+        if (winnerId == 0) {
+             W.exec_params(
+                "INSERT INTO matches (id, winner_id, duration_seconds) VALUES ($1, NULL, $2)",
+                matchId, durationSeconds
+            );
+        } else {
+             W.exec_params(
+                "INSERT INTO matches (id, winner_id, duration_seconds) VALUES ($1, $2, $3)",
+                matchId, winnerId, durationSeconds
+            );
+        }
+       
+        // Insert participants
+        for (auto pId : players) {
+            W.exec_params("INSERT INTO match_players (match_id, player_id) VALUES ($1, $2)", matchId, pId);
+        }
+        
+        W.commit();
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to record match result: " + std::string(e.what()));
+    }
+}
+
+std::vector<common::MatchHistoryEntry> PostgresClient::getMatchHistory(common::PlayerId playerId, int limit) {
+    std::lock_guard<std::mutex> lock(dbMutex_);
+    std::vector<common::MatchHistoryEntry> history;
+    try {
+        pqxx::nontransaction N(*conn_);
+        
+        // Find matches the player was in
+        pqxx::result R = N.exec_params(
+            "SELECT m.id, m.winner_id, m.duration_seconds, m.timestamp::text as ts "
+            "FROM matches m "
+            "JOIN match_players mp ON m.id = mp.match_id "
+            "WHERE mp.player_id = $1 "
+            "ORDER BY m.timestamp DESC "
+            "LIMIT $2",
+            playerId, limit
+        );
+        
+        for (auto row : R) {
+            common::MatchHistoryEntry entry;
+            entry.matchId = row["id"].as<std::string>();
+            entry.winnerId = row["winner_id"].is_null() ? 0 : row["winner_id"].as<common::PlayerId>();
+            entry.durationSeconds = row["duration_seconds"].as<int>();
+            entry.timestamp = row["ts"].as<std::string>();
+            
+            // Fetch all players for this match
+            pqxx::result pr = N.exec_params(
+                "SELECT u.username FROM users u "
+                "JOIN match_players mp ON u.id = mp.player_id "
+                "WHERE mp.match_id = $1",
+                entry.matchId
+            );
+            
+            for (auto pRow : pr) {
+                entry.players.push_back(pRow["username"].as<std::string>());
+            }
+            
+            history.push_back(entry);
+        }
+    } catch (const std::exception& e) {
+        common::Logger::error("Failed to get match history: " + std::string(e.what()));
+    }
+    return history;
 }
 
 } // namespace database

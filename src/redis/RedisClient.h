@@ -28,6 +28,11 @@ public:
     bool validateToken(common::PlayerId playerId, const std::string& token);
     void invalidateToken(common::PlayerId playerId);
 
+    // Player Presence
+    void setPlayerPresence(common::PlayerId playerId, const std::string& status);
+    std::string getPlayerPresence(common::PlayerId playerId);
+    std::vector<std::string> getMultiplePlayerPresence(const std::vector<common::PlayerId>& playerIds);
+
 private:
     RedisClient() = default;
 

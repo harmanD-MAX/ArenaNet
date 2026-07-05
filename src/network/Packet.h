@@ -36,7 +36,30 @@ enum class PacketType {
 
     // Leaderboard
     GET_LEADERBOARD_REQUEST = 40,
-    GET_LEADERBOARD_RESPONSE = 41
+    GET_LEADERBOARD_RESPONSE = 41,
+
+    // Friends
+    FRIEND_REQUEST = 50,
+    FRIEND_ACCEPT = 51,
+    FRIEND_REJECT = 52,
+    FRIEND_REMOVE = 53,
+    GET_FRIENDS_LIST_REQUEST = 54,
+    GET_FRIENDS_LIST_RESPONSE = 55,
+
+    // Parties
+    CREATE_PARTY_REQUEST = 60,
+    PARTY_INVITE = 61,
+    PARTY_ACCEPT = 62,
+    LEAVE_PARTY = 63,
+    PARTY_STATE_UPDATE = 64,
+
+    // Match History
+    REPORT_MATCH_RESULT = 70,
+    GET_MATCH_HISTORY_REQUEST = 71,
+    GET_MATCH_HISTORY_RESPONSE = 72,
+
+    // Notifications
+    NOTIFICATION_EVENT = 80
 };
 
 struct Packet {

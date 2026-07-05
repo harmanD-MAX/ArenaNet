@@ -84,5 +84,65 @@ void RedisClient::invalidateToken(common::PlayerId playerId) {
     }
 }
 
+// ---------------------------------------------------------
+// PLAYER PRESENCE
+// ---------------------------------------------------------
+
+void RedisClient::setPlayerPresence(common::PlayerId playerId, const std::string& status) {
+    if (!redis_) return;
+    try {
+        if (status == "OFFLINE") {
+            redis_->del("presence:" + std::to_string(playerId));
+        } else {
+            redis_->set("presence:" + std::to_string(playerId), status);
+        }
+    } catch (const sw::redis::Error& e) {
+        common::Logger::error("Redis setPlayerPresence error: " + std::string(e.what()));
+    }
+}
+
+std::string RedisClient::getPlayerPresence(common::PlayerId playerId) {
+    if (!redis_) return "OFFLINE";
+    try {
+        auto val = redis_->get("presence:" + std::to_string(playerId));
+        if (val) {
+            return *val;
+        }
+    } catch (const sw::redis::Error& e) {
+        common::Logger::error("Redis getPlayerPresence error: " + std::string(e.what()));
+    }
+    return "OFFLINE";
+}
+
+std::vector<std::string> RedisClient::getMultiplePlayerPresence(const std::vector<common::PlayerId>& playerIds) {
+    std::vector<std::string> results(playerIds.size(), "OFFLINE");
+    if (!redis_ || playerIds.empty()) return results;
+    
+    try {
+        // Build keys
+        std::vector<std::string> keys;
+        for (auto id : playerIds) {
+            keys.push_back("presence:" + std::to_string(id));
+        }
+        
+        // Execute MGET pipeline or direct MGET if supported easily. 
+        // For simplicity with redis-plus-plus, we will just use a pipeline.
+        auto pipe = redis_->pipeline();
+        for (const auto& key : keys) {
+            pipe.get(key);
+        }
+        auto replies = pipe.exec();
+        
+        for (size_t i = 0; i < replies.size(); ++i) {
+            if (replies.get<sw::redis::OptionalString>(i)) {
+                results[i] = *(replies.get<sw::redis::OptionalString>(i));
+            }
+        }
+    } catch (const sw::redis::Error& e) {
+        common::Logger::error("Redis getMultiplePlayerPresence error: " + std::string(e.what()));
+    }
+    return results;
+}
+
 } // namespace redis
 } // namespace arenanet
