@@ -1,4 +1,4 @@
-# ArenaNet (Version 1 MVP)
+# ArenaNet (Version 2)
 
 ArenaNet is a highly modular, high-performance C++20 multiplayer backend framework. It is designed to act as an infrastructure product allowing indie game developers to seamlessly integrate essential multiplayer features into their custom engines or commercial ones like Unity and Unreal Engine.
 
@@ -9,9 +9,11 @@ Building scalable backend services for multiplayer games is a complex and repeti
 ### Features
 * **Authentication**: JWT-based login and registration flow with securely hashed passwords.
 * **Lobby Management**: Create, join, leave, and list manual lobbies. Players can toggle their Ready state.
-* **Matchmaking**: Scalable queuing system that groups players and provisions match instances, automatically bypassing the queue for private manual lobbies when everyone readies up.
+* **Social System**: Friend requests, presence tracking (Online/Offline via Redis), and real-time notifications.
+* **Party System**: Create parties and invite friends to group up before matchmaking.
+* **Matchmaking**: Scalable queuing system that groups players or parties, matching them dynamically based on expanding rating tolerances.
+* **Match History & Leaderboards**: Track Match results, calculate global Player Rank dynamically using PostgreSQL window functions, and fetch past games.
 * **Real-Time Chat**: Broadcast-based lobby chat.
-* **Leaderboards**: Track player Wins, Losses, and calculate global Player Rank dynamically using PostgreSQL window functions.
 * **Unity Integration**: Includes a complete C# `NetworkClient.cs` and `ArenaNetUIManager.cs` for drag-and-drop Unity integration.
 * **Desktop Client**: Includes a fully-functional Python Tkinter GUI desktop client for instant manual testing (`client/gui_client.py`).
 
@@ -33,9 +35,11 @@ ArenaNet/
 │   ├── lobby/           # Lobby state management
 │   ├── matchmaking/     # Match queuing and player grouping
 │   ├── network/         # Asio TCP/UDP Servers and packet serialization
-│   ├── redis/           # Redis connection for transient data
+│   ├── party/           # Party state management
+│   ├── friend/          # Friend system and notifications
+│   ├── match/           # Match results and history tracking
+│   ├── redis/           # Redis connection for transient data (like Presence)
 │   └── main.cpp
-└── tests/               # Unit and integration tests
 ```
 
 ## Technologies Used

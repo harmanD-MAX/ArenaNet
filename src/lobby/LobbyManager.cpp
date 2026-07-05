@@ -186,11 +186,10 @@ void LobbyManager::handlePlayerReady(std::shared_ptr<network::Connection> conn, 
         lobby->setPlayerReady(playerId, isReady);
         broadcastToLobby(lobbyId, lobby->getLobbyStatePacket());
         
-        // If everyone is ready, start match!
         if (lobby->isEveryoneReady() && lobby->getPlayers().size() >= 2) {
             network::Packet matchStart;
             matchStart.type = network::PacketType::MATCH_FOUND_EVENT;
-            matchStart.payload["match_id"] = lobbyId; // For MVP, the manual lobby becomes the match
+            matchStart.payload["match_id"] = lobbyId;
             
             nlohmann::json playersArr = nlohmann::json::array();
             for (auto pid : lobby->getPlayers()) {

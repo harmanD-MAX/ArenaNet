@@ -10,7 +10,7 @@ class ArenaNetGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ArenaNet Client Demo V2")
-        self.root.geometry("600x700")
+        self.root.geometry("600x750")
         
         self.sock = None
         self.connected = False
@@ -48,6 +48,7 @@ class ArenaNetGUI:
         self.lobby_id_entry = tk.Entry(mid_frame, width=10)
         self.lobby_id_entry.grid(row=0, column=2, padx=5)
         tk.Button(mid_frame, text="Join Lobby", command=self.do_join_lobby).grid(row=0, column=3, padx=5)
+        tk.Button(mid_frame, text="Leave Lobby", command=self.do_leave_lobby).grid(row=0, column=4, padx=5)
         
         tk.Button(mid_frame, text="Ready", command=lambda: self.do_ready(True)).grid(row=1, column=0, pady=5)
         tk.Button(mid_frame, text="Unready", command=lambda: self.do_ready(False)).grid(row=1, column=1, pady=5)
@@ -62,10 +63,15 @@ class ArenaNetGUI:
         self.target_entry = tk.Entry(v2_frame, width=10)
         self.target_entry.grid(row=0, column=1, padx=5)
         tk.Button(v2_frame, text="Add Friend (ID)", command=self.do_add_friend).grid(row=0, column=2, padx=5)
+        tk.Button(v2_frame, text="Accept Friend (ID)", command=self.do_accept_friend).grid(row=0, column=3, padx=5)
         
         tk.Button(v2_frame, text="Create Party", command=self.do_create_party).grid(row=1, column=0, pady=5)
-        tk.Button(v2_frame, text="Queue Match", command=self.do_queue_match).grid(row=1, column=1, pady=5)
-        tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=1, column=2, pady=5)
+        tk.Button(v2_frame, text="Invite Party (ID)", command=self.do_invite_party).grid(row=1, column=1, pady=5)
+        tk.Button(v2_frame, text="Accept Party (ID)", command=self.do_accept_party).grid(row=1, column=2, pady=5)
+        
+        tk.Button(v2_frame, text="Queue Match", command=self.do_queue_match).grid(row=2, column=0, pady=5)
+        tk.Button(v2_frame, text="Match History", command=self.do_match_history).grid(row=2, column=1, pady=5)
+        tk.Button(v2_frame, text="Simulate Match Win", command=self.do_simulate_match_win).grid(row=2, column=2, pady=5)
 
         # Bottom Frame - Chat & Logs
         bottom_frame = tk.Frame(self.root)
@@ -199,6 +205,12 @@ class ArenaNetGUI:
         if lobby_id:
             self.send_packet(12, {"lobby_id": lobby_id})
             
+    def do_leave_lobby(self):
+        if self.current_lobby:
+            self.send_packet(14, {"lobby_id": self.current_lobby})
+            self.log(f"Left Lobby: {self.current_lobby}")
+            self.current_lobby = ""
+            
     def do_ready(self, state):
         if self.current_lobby:
             self.send_packet(18, {"lobby_id": self.current_lobby, "is_ready": state})
@@ -221,15 +233,53 @@ class ArenaNetGUI:
             self.send_packet(50, {"target_id": int(target)})
             self.log(f"Sent friend request to ID {target}")
             
+    def do_accept_friend(self):
+        target = self.target_entry.get()
+        if target.isdigit():
+            self.send_packet(51, {"sender_id": int(target)})
+            self.log(f"Accepted friend request from ID {target}")
+            
     def do_create_party(self):
         self.send_packet(60, {})
         
+    def do_invite_party(self):
+        target = self.target_entry.get()
+        if target.isdigit():
+            self.send_packet(61, {"target_id": int(target)})
+            self.log(f"Sent party invite to ID {target}")
+            
+    def do_accept_party(self):
+        party_id = self.target_entry.get()
+        if party_id:
+            self.send_packet(62, {"party_id": party_id})
+            self.log(f"Accepted party invite for {party_id}")
+        
     def do_queue_match(self):
-        self.send_packet(21, {}) # JOIN_QUEUE_REQUEST
+        self.send_packet(20, {}) # JOIN_QUEUE_REQUEST
         self.log("Joined matchmaking queue.")
         
     def do_match_history(self):
         self.send_packet(71, {})
+        
+    def do_simulate_match_win(self):
+        if not self.current_lobby.startswith("match_"):
+            self.log("You must be in a match to simulate a win!")
+            return
+            
+        target = self.target_entry.get()
+        players_list = [self.player_id]
+        if target.isdigit():
+            players_list.append(int(target))
+        
+        # In a real game, the server or a trusted authority reports this.
+        # For testing, we send a mock packet with ourselves as winner and the target as loser.
+        self.send_packet(70, {
+            "match_id": self.current_lobby,
+            "winner_id": self.player_id,
+            "duration_seconds": 300,
+            "players": players_list
+        })
+        self.log(f"Reported match {self.current_lobby} as won against {target}!")
 
 if __name__ == "__main__":
     root = tk.Tk()
