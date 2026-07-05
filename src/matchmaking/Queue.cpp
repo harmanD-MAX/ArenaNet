@@ -9,15 +9,15 @@ namespace matchmaking {
 void Queue::addEntry(const QueueEntry& entry) {
     std::lock_guard<std::mutex> lock(mutex_);
     
-    // Ensure no members are already in queue
+    // Remove any existing entries for these members (allows re-queuing with different settings)
     for (auto memberId : entry.members) {
-        auto it = std::find_if(entries_.begin(), entries_.end(),
-            [memberId](const QueueEntry& e) {
-                return std::find(e.members.begin(), e.members.end(), memberId) != e.members.end();
-            });
-        if (it != entries_.end()) {
-            return; // Already in queue
-        }
+        entries_.erase(
+            std::remove_if(entries_.begin(), entries_.end(),
+                [memberId](const QueueEntry& e) {
+                    return std::find(e.members.begin(), e.members.end(), memberId) != e.members.end();
+                }),
+            entries_.end()
+        );
     }
     
     entries_.push_back(entry);
@@ -34,10 +34,8 @@ void Queue::removePlayer(common::PlayerId playerId) {
     );
 }
 
-std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long currentTimeMs) {
+void Queue::getMatch(long long currentTimeMs, std::vector<QueueEntry>& outMatch, std::vector<QueueEntry>& outTimedOut) {
     std::lock_guard<std::mutex> lock(mutex_);
-    
-    std::vector<QueueEntry> match;
     
     // Sort by join time FIFO
     std::sort(entries_.begin(), entries_.end(), 
@@ -46,6 +44,11 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
     // O(N^2) search for combinations
     for (size_t i = 0; i < entries_.size(); ++i) {
         const auto& baseEntry = entries_[i];
+        int targetTotalPlayers = baseEntry.targetMatchSize;
+        if (targetTotalPlayers == -1) {
+            targetTotalPlayers = config::ConfigManager::getInstance().getMatchSize();
+        }
+        
         int currentCount = baseEntry.members.size();
         
         if (currentCount > targetTotalPlayers) continue;
@@ -53,10 +56,11 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
         long long waitSeconds = (currentTimeMs - baseEntry.joinTimeMs) / 1000;
         int queueTimeout = config::ConfigManager::getInstance().getQueueTimeoutSeconds();
         if (waitSeconds > queueTimeout) {
-            // Remove them due to timeout
+            // Push to outTimedOut and remove from queue
+            outTimedOut.push_back(baseEntry);
             entries_.erase(entries_.begin() + i);
             common::Logger::info("Matchmaking queue timeout for a party. Removed from queue.");
-            return match; // return empty, will continue loop next tick
+            return; // Return early, Matchmaker will handle the timeout and call getMatch again next tick
         }
         
         int expansionRate = config::ConfigManager::getInstance().getMatchmakingExpansionRate();
@@ -67,13 +71,20 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
         
         if (currentCount == targetTotalPlayers) {
             // Full party found
-            match.push_back(baseEntry);
+            outMatch.push_back(baseEntry);
             entries_.erase(entries_.begin() + i);
-            return match;
+            return;
         }
         
-        for (size_t j = i + 1; j < entries_.size(); ++j) {
+        for (size_t j = 0; j < entries_.size(); ++j) {
+            if (i == j) continue;
+            
             const auto& potentialEntry = entries_[j];
+            
+            int potentialTarget = potentialEntry.targetMatchSize;
+            if (potentialTarget != -1 && potentialTarget != targetTotalPlayers) {
+                continue;
+            }
             
             // Check rating tolerance
             if (std::abs(baseEntry.averageRating - potentialEntry.averageRating) <= tolerance) {
@@ -86,7 +97,7 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
             if (currentCount == targetTotalPlayers) {
                 // Match found!
                 for (size_t idx : matchedIndices) {
-                    match.push_back(entries_[idx]);
+                    outMatch.push_back(entries_[idx]);
                 }
                 
                 // Erase from queue (in reverse order to not invalidate indices)
@@ -95,12 +106,10 @@ std::vector<QueueEntry> Queue::getMatch(int targetTotalPlayers, long long curren
                     entries_.erase(entries_.begin() + idx);
                 }
                 
-                return match;
+                return;
             }
         }
     }
-    
-    return match;
 }
 
 } // namespace matchmaking

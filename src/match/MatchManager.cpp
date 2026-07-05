@@ -1,6 +1,7 @@
 #include "MatchManager.h"
 #include "../database/PostgresClient.h"
 #include "../common/Logger.h"
+#include <algorithm>
 
 namespace arenanet {
 namespace match {
@@ -30,12 +31,20 @@ void MatchManager::handleReportMatchResult(std::shared_ptr<network::Connection> 
         for (auto pId : packet.payload["players"]) {
             players.push_back(pId);
         }
+        std::vector<common::PlayerId> winners;
+        if (packet.payload.contains("winners")) {
+            for (auto pId : packet.payload["winners"]) {
+                winners.push_back(pId);
+            }
+        } else {
+            winners.push_back(winnerId); // Fallback for older clients
+        }
         
         database::PostgresClient::getInstance().recordMatchResult(matchId, winnerId, durationSeconds, players);
         
         // Update ratings
         for (auto pId : players) {
-            bool isWin = (pId == winnerId);
+            bool isWin = (std::find(winners.begin(), winners.end(), pId) != winners.end());
             database::PostgresClient::getInstance().updatePlayerStats(pId, isWin);
         }
         

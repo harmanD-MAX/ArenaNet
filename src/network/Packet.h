@@ -2,7 +2,7 @@
 
 #include <string>
 #include <nlohmann/json.hpp>
-#include "../common/Types.h"
+
 
 namespace arenanet {
 namespace network {
@@ -31,6 +31,7 @@ enum class PacketType {
     JOIN_QUEUE_RESPONSE = 21,
     LEAVE_QUEUE_REQUEST = 22,
     MATCH_FOUND_EVENT = 23,
+    MATCH_TIMEOUT_EVENT = 24,
 
     // Chat
     CHAT_MESSAGE = 30,

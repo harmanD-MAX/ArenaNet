@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if (APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isystem /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1")
+endif()
+
 # FetchContent for header-only libraries
 include(FetchContent)
 
@@ -20,7 +24,7 @@ FetchContent_MakeAvailable(asio)
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.11.2
+    GIT_TAG        v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
@@ -28,7 +32,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 FetchContent_Declare(
     jwt_cpp
     GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
-    GIT_TAG        v0.7.0
+    GIT_TAG        v0.7.2
 )
 FetchContent_MakeAvailable(jwt_cpp)
 
@@ -36,7 +40,7 @@ FetchContent_MakeAvailable(jwt_cpp)
 FetchContent_Declare(
     redis_plus_plus
     GIT_REPOSITORY https://github.com/sewenew/redis-plus-plus.git
-    GIT_TAG        1.3.10
+    GIT_TAG        1.3.15
 )
 FetchContent_MakeAvailable(redis_plus_plus)
 

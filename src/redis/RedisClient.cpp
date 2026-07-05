@@ -1,6 +1,6 @@
 #include "RedisClient.h"
 #include "../common/Logger.h"
-#include <iostream>
+
 
 namespace arenanet {
 namespace redis {

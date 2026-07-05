@@ -25,7 +25,17 @@ Players can create custom lobbies to play with friends. The server remembers who
 ### Parties & Matchmaking
 The matchmaking system runs on its own background thread. Every second, it checks the queue to see if it can pair people up. If you've been waiting too long, the algorithm slowly widens the ELO rating gap to find you a match. 
 
-You can also invite friends to a party. If you queue up as a party, the server calculates your group's average rating and matches you against others as a single team.
+You can also invite friends to a party. If you queue up as a party, the server calculates your group's average rating and matches you against others as a single team. Only the **party leader** can start matchmaking for the group.
+
+#### Dynamic Match Sizing
+Each player (or party) specifies how many opponents they want to face:
+- A solo player requesting **2 opponents** → total match size of 3
+- A party of 2 requesting **1 opponent** → total match size of 3
+- Since both have the same total, the server groups them into one match!
+
+There is also an **"Any"** option (sent as `-1`). Players who select "Any" act as wildcards—the server can pull them into any match that needs more players, regardless of the requested size. If no specific match is available, "Any" players default to the server's configured match size (default: 2).
+
+If the queue can't fill a match within the configured timeout (default: 300 seconds), the server sends a `MATCH_TIMEOUT_EVENT` back to the client so the UI can notify the player.
 
 ---
 
@@ -97,8 +107,9 @@ Once the server is running, open two separate terminals and run `python3 client/
 
 5. **Matchmaking**
    - First, click Leave Party in Client A so you are both solo.
-   - Have both clients click Queue Match. After a few seconds, the matchmaking algorithm will find you both and trigger a `>>> MATCH STARTED! <<<` event.
-   - (If you want to test Party Matchmaking, you can group up in a party again and ONLY the party leader needs to click Queue Match!)
+   - Set the **Opponents** dropdown to `1` on both clients and click **Queue Match**. After a few seconds, the matchmaking algorithm will find you both and trigger a `>>> MATCH STARTED! <<<` event.
+   - **Party Matchmaking (3-player example):** Open a third client (Client C). Group up Client A and B into a party. On Client A (the leader), set Opponents to `1` and click Queue Match. On Client C, set Opponents to `Any` and click Queue Match. All three will be matched together!
+   - **Note:** Only the party leader can click Queue Match. Non-leaders will see an error: `"Only the party leader can start matchmaking."`
 
 6. **Leaderboard & History**
    - Click Leaderboard to see everyone's current rating (1000).
@@ -119,7 +130,11 @@ bool success = await client.Auth.LoginAsync("my_user", "password123");
 client.Matchmaking.OnMatchFound += (matchId, players) => {
     Console.WriteLine($"Match Found! Match ID: {matchId}");
 };
-await client.Matchmaking.JoinQueueAsync();
+// Queue for a 1v1 match (1 opponent)
+await client.Matchmaking.JoinQueueAsync(opponents: 1);
+
+// Or queue as a wildcard (match any size)
+await client.Matchmaking.JoinQueueAsync(opponents: -1);
 ```
 
 ## License

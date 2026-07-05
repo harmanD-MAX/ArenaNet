@@ -12,6 +12,7 @@ struct QueueEntry {
     std::vector<common::PlayerId> members;
     int averageRating;
     long long joinTimeMs;
+    int targetMatchSize;
 };
 
 class Queue {
@@ -20,8 +21,8 @@ public:
     void removePlayer(common::PlayerId playerId); // Removes the entire entry that contains this player
     
     // Rating-based matchmaking
-    // Returns a list of entries that form a match, or empty if no match found.
-    std::vector<QueueEntry> getMatch(int targetTotalPlayers, long long currentTimeMs);
+    // Iterates the queue and groups entries by gameMode. Populates matched and timed-out entries.
+    void getMatch(long long currentTimeMs, std::vector<QueueEntry>& outMatch, std::vector<QueueEntry>& outTimedOut);
 
 private:
     std::mutex mutex_;

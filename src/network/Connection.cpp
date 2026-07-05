@@ -1,6 +1,6 @@
 #include "Connection.h"
 #include "../common/Logger.h"
-#include <iostream>
+
 
 namespace arenanet {
 namespace network {
@@ -32,7 +32,10 @@ void Connection::send(const Packet& packet) {
 
 void Connection::disconnect() {
     asio::error_code ec;
-    socket_.close(ec);
+    ec = socket_.close(ec);
+    if (ec) {
+        common::Logger::warning("Error closing socket: " + ec.message());
+    }
 }
 
 std::string Connection::getRemoteAddress() const {

@@ -7,7 +7,7 @@
 #include "../config/ConfigManager.h"
 #include "../common/Logger.h"
 #include "../common/Error.h"
-#include <functional>
+
 
 namespace arenanet {
 namespace authentication {

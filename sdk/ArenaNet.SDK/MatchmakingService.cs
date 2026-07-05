@@ -30,10 +30,11 @@ namespace ArenaNet.SDK
 
         /// <summary>
         /// Joins the global matchmaking queue.
+        /// <param name="opponents">Number of opponents to search for, or -1 for 'Any' match size.</param>
         /// </summary>
-        public async Task<bool> JoinQueueAsync()
+        public async Task<bool> JoinQueueAsync(int opponents = -1)
         {
-            var response = await _client.SendAndAwaitResponseAsync(20, new { }, 21); // 20=JOIN_QUEUE, 21=RESPONSE
+            var response = await _client.SendAndAwaitResponseAsync(20, new { opponents = opponents }, 21); // 20=JOIN_QUEUE, 21=RESPONSE
             return response["payload"]["success"]?.Value<bool>() ?? false;
         }
 
