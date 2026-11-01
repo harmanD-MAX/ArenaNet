@@ -4,6 +4,8 @@ The goal of this project was to create a clean, C++20 backend that you could act
 
 ## How it works (The Architecture)
 
+![ArenaNet architecture diagram](docs/architecture.svg)
+
 The whole thing is built in C++20. I used Asio for the networking because I wanted to handle TCP sockets asynchronously without a massive framework. 
 
 When a game client talks to the server, it sends a tiny custom packet containing a 4-byte length header followed by some JSON payload. 
